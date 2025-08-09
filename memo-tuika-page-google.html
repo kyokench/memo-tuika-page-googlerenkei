@@ -3,9 +3,8 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1.0" />
-<title>カテゴリ別ページ管理（Googleログイン対応）</title>
+<title>カテゴリ別ページ管理（閲覧ページ対応）</title>
 
-<!-- ==== Minimal CSS ==== -->
 <style>
   :root { --gap: 14px; }
   body { font-family: system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans JP", sans-serif; margin:0; color:#222; background:#f7f7f9; }
@@ -20,6 +19,7 @@
   .nav .cat { background:#1f2937; color:#e5e7eb; padding:6px 10px; border-radius:999px; font-size:14px; cursor:pointer; border:1px solid transparent; }
   .nav .cat.active { background:#f9fafb; color:#111827; border-color:#111827; }
   .nav .add-cat { background:transparent; color:#93c5fd; border:1px dashed #374151; }
+
   .container { max-width:1100px; margin: 20px auto; padding: 0 16px; }
 
   .toolbar { display:flex; justify-content:space-between; align-items:center; margin-bottom: var(--gap); gap:var(--gap); }
@@ -28,12 +28,13 @@
   .btn { padding:8px 12px; border-radius:8px; border:1px solid #d1d5db; background:#fff; cursor:pointer; }
   .btn.primary { background:#111827; color:#fff; border-color:#111827; }
   .btn.warn { background:#fee2e2; color:#991b1b; border-color:#fecaca; }
-  .btn:disabled { opacity:.6; cursor:not-allowed; }
+  .btn.ghost { background:transparent; }
 
   .grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: var(--gap); }
   .card { background:#fff; border:1px solid #e5e7eb; border-radius:14px; padding:14px; display:flex; flex-direction:column; gap:10px; box-shadow:0 1px 2px rgba(0,0,0,0.04); }
   .card h3 { margin:0; font-size:16px; line-height:1.4; }
   .meta { font-size:12px; color:#6b7280; }
+  .preview { white-space:pre-wrap; font-size:13px; color:#374151; }
   .card .actions { display:flex; gap:8px; margin-top:auto; }
 
   .empty { padding:24px; text-align:center; color:#6b7280; background:#fff; border:1px dashed #d1d5db; border-radius:12px; }
@@ -47,18 +48,24 @@
   .modal .footer { display:flex; justify-content:flex-end; gap:10px; padding:0 16px 16px; }
 
   .gate { max-width:640px; margin:80px auto; text-align:center; background:#fff; padding:32px; border-radius:16px; border:1px solid #e5e7eb; }
+
+  /* 閲覧ページ */
+  .detail { background:#fff; border:1px solid #e5e7eb; border-radius:16px; padding:22px; box-shadow:0 1px 2px rgba(0,0,0,0.04); }
+  .detail .title { font-size:22px; font-weight:700; margin:0 0 6px; }
+  .detail .submeta { color:#6b7280; font-size:13px; margin-bottom:16px; }
+  .detail .content { font-size:16px; line-height:1.9; color:#1f2937; white-space:pre-wrap; }
+  .detail .actions { display:flex; gap:10px; margin-top:16px; }
 </style>
 
-<!-- ==== Firebase SDKs (v10) ==== -->
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
   import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
   import {
     getFirestore, collection, addDoc, getDocs, query, where,
-    updateDoc, deleteDoc, doc, serverTimestamp, orderBy
+    updateDoc, deleteDoc, doc, serverTimestamp, getDoc
   } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-  // === 設定（必要に応じて変更） ===
+  // ===== 設定 =====
   const firebaseConfig = {
     apiKey: "AIzaSyDuNluIfeulzr_hCr7bHtnCxE1cBneB4kM",
     authDomain: "masu-memo.firebaseapp.com",
@@ -67,44 +74,32 @@
     messagingSenderId: "1065347011702",
     appId: "1:1065347011702:web:e417d565f28d000da83b57"
   };
-  const DEFAULT_CATEGORIES = ["その他", "ブログ", "技術"]; // ここに追加で増やせます
+  const DEFAULT_CATEGORIES = ["その他", "ブログ", "技術"];
 
-  // === 初期化 ===
+  // ===== 初期化 =====
   const app = initializeApp(firebaseConfig);
   const auth = getAuth();
   const db = getFirestore();
-
   const provider = new GoogleAuthProvider();
+
   let currentUser = null;
   let categories = [...DEFAULT_CATEGORIES];
   let currentCategory = categories[0];
-  let editingPageId = null; // 編集中のドキュメントID
+  let editingPageId = null;
 
-  // === DOM ===
+  // ===== DOM参照 =====
   const elGate = () => document.getElementById("gate");
   const elApp = () => document.getElementById("app");
   const elUser = () => document.getElementById("user");
   const elNav = () => document.getElementById("nav");
+  const elListView = () => document.getElementById("listView");
+  const elDetailView = () => document.getElementById("detailView");
   const elList = () => document.getElementById("list");
   const elSelCat = () => document.getElementById("selectedCat");
 
-  // === Auth ===
-  async function login() {
-    try {
-      await signInWithPopup(auth, provider);
-    } catch (e) {
-      alert("ログインに失敗しました: " + e.message);
-      console.error(e);
-    }
-  }
-  async function logout() {
-    try {
-      await signOut(auth);
-    } catch (e) {
-      alert("ログアウトに失敗しました: " + e.message);
-      console.error(e);
-    }
-  }
+  // ===== Auth =====
+  async function login(){ try{ await signInWithPopup(auth, provider);}catch(e){ alert("ログイン失敗: "+e.message); console.error(e); } }
+  async function logout(){ try{ await signOut(auth);}catch(e){ alert("ログアウト失敗: "+e.message); console.error(e); } }
 
   onAuthStateChanged(auth, async (user) => {
     if (user) {
@@ -113,7 +108,7 @@
       elApp().style.display = "block";
       elUser().textContent = `こんにちは、${user.displayName || "ユーザー"} さん`;
       renderNav();
-      await loadAndRenderList(); // 初期カテゴリで一覧
+      routeFromHash(); // ハッシュに応じて初期表示
     } else {
       currentUser = null;
       elApp().style.display = "none";
@@ -121,23 +116,18 @@
     }
   });
 
-  // === Firestore helpers ===
+  // ===== Firestore helpers =====
   function pagesColRef() {
     if (!currentUser) throw new Error("not authed");
     return collection(db, "users", currentUser.uid, "pages");
   }
 
   async function loadPagesByCategory(cat) {
-    // インデックス不要にしたいので orderBy は使わず、取得後にソート
     const q = query(pagesColRef(), where("category", "==", cat));
     const snap = await getDocs(q);
     const rows = [];
-    snap.forEach((d) => {
-      const data = d.data();
-      rows.push({ id: d.id, ...data });
-    });
-    // updatedAt 降順（なければ createdAt）
-    rows.sort((a, b) => {
+    snap.forEach((d)=> rows.push({ id:d.id, ...d.data() }));
+    rows.sort((a,b)=>{
       const ta = (a.updatedAt?.toMillis?.() || a.createdAt?.toMillis?.() || 0);
       const tb = (b.updatedAt?.toMillis?.() || b.createdAt?.toMillis?.() || 0);
       return tb - ta;
@@ -145,94 +135,76 @@
     return rows;
   }
 
+  async function getPageById(id){
+    const d = await getDoc(doc(db, "users", currentUser.uid, "pages", id));
+    if (!d.exists()) return null;
+    return { id: d.id, ...d.data() };
+  }
+
   async function createPage({ title, category, content }) {
-    return await addDoc(pagesColRef(), {
-      title, category, content,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-    });
+    return await addDoc(pagesColRef(), { title, category, content, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
   }
-
   async function updatePage(id, { title, category, content }) {
-    const ref = doc(db, "users", currentUser.uid, "pages", id);
-    await updateDoc(ref, {
-      title, category, content,
-      updatedAt: serverTimestamp(),
-    });
+    await updateDoc(doc(db,"users",currentUser.uid,"pages",id), { title, category, content, updatedAt: serverTimestamp() });
   }
-
   async function removePage(id) {
-    const ref = doc(db, "users", currentUser.uid, "pages", id);
-    await deleteDoc(ref);
+    await deleteDoc(doc(db,"users",currentUser.uid,"pages",id));
   }
 
-  // === UI: ナビ ===
+  // ===== ナビ =====
   function renderNav() {
     elNav().innerHTML = "";
     categories.forEach(cat => {
       const b = document.createElement("button");
       b.className = "cat" + (cat === currentCategory ? " active" : "");
       b.textContent = cat;
-      b.onclick = async () => {
-        currentCategory = cat;
-        renderNav();
-        await loadAndRenderList();
-      };
+      b.onclick = () => { currentCategory = cat; renderNav(); navigateList(cat); };
       elNav().appendChild(b);
     });
-    // 将来カテゴリ追加：必要なら解放
     const add = document.createElement("button");
     add.className = "cat add-cat";
     add.textContent = "＋カテゴリ追加";
-    add.title = "一時的にクライアント側に追加されます（必要なら固定化してご利用ください）";
-    add.onclick = async () => {
-      const name = prompt("追加するカテゴリ名を入力してください");
+    add.onclick = () => {
+      const name = prompt("カテゴリ名");
       if (name && !categories.includes(name)) {
         categories.push(name);
         currentCategory = name;
         renderNav();
-        await loadAndRenderList();
+        navigateList(name);
       }
     };
     elNav().appendChild(add);
-
-    elSelCat().textContent = currentCategory;
   }
 
-  // === UI: 一覧 ===
-  async function loadAndRenderList() {
-    if (!currentUser) return;
-    const items = await loadPagesByCategory(currentCategory);
-    renderList(items);
-  }
-
-  function renderList(items) {
-    const wrap = elList();
-    wrap.innerHTML = "";
+  // ===== 一覧表示 =====
+  async function renderList(cat){
+    const items = await loadPagesByCategory(cat);
+    elList().innerHTML = "";
     if (!items.length) {
-      wrap.innerHTML = `<div class="empty">このカテゴリのページはまだありません。「新規ページ」を押して作成してください。</div>`;
+      elList().innerHTML = `<div class="empty">このカテゴリのページはまだありません。「新規ページ」を押して作成してください。</div>`;
       return;
     }
     const grid = document.createElement("div");
     grid.className = "grid";
-
-    for (const it of items) {
+    items.forEach(it=>{
       const card = document.createElement("div");
       card.className = "card";
 
       const h3 = document.createElement("h3");
       h3.textContent = it.title || "(無題)";
+      h3.style.cursor = "pointer";
+      h3.onclick = ()=> navigateView(it.id);
 
       const meta = document.createElement("div");
-      const updated = it.updatedAt?.toDate?.() || it.createdAt?.toDate?.();
       meta.className = "meta";
+      const updated = it.updatedAt?.toDate?.() || it.createdAt?.toDate?.();
       meta.textContent = `${it.category} ｜ 更新: ${updated ? fmt(updated) : "—"}`;
 
       const preview = document.createElement("div");
-      preview.style.whiteSpace = "pre-wrap";
-      preview.style.fontSize = "13px";
-      preview.style.color = "#374151";
+      preview.className = "preview";
       preview.textContent = (it.content || "").slice(0, 140) + ((it.content || "").length > 140 ? "…" : "");
+      preview.style.cursor = "pointer";
+      preview.onclick = ()=> navigateView(it.id);
 
       const actions = document.createElement("div");
       actions.className = "actions";
@@ -248,84 +220,152 @@
       del.onclick = async () => {
         if (confirm("このページを削除します。よろしいですか？")) {
           await removePage(it.id);
-          await loadAndRenderList();
+          await renderList(cat);
         }
       };
 
       actions.append(edit, del);
       card.append(h3, meta, preview, actions);
       grid.appendChild(card);
-    }
-
-    wrap.appendChild(grid);
+    });
+    elList().appendChild(grid);
   }
 
-  function fmt(d) {
-    const y = d.getFullYear();
-    const m = String(d.getMonth()+1).padStart(2,"0");
-    const day = String(d.getDate()).padStart(2,"0");
-    const hh = String(d.getHours()).padStart(2,"0");
-    const mm = String(d.getMinutes()).padStart(2,"0");
-    return `${y}/${m}/${day} ${hh}:${mm}`;
+  function fmt(d){ const y=d.getFullYear(); const m=String(d.getMonth()+1).padStart(2,"0"); const day=String(d.getDate()).padStart(2,"0"); const hh=String(d.getHours()).padStart(2,"0"); const mm=String(d.getMinutes()).padStart(2,"0"); return `${y}/${m}/${day} ${hh}:${mm}`; }
+
+  // ===== 閲覧ビュー =====
+  async function renderDetail(id){
+    const it = await getPageById(id);
+    const target = document.getElementById("detailInner");
+    if (!it) { target.innerHTML = `<div class="empty">ページが見つかりませんでした。</div>`; return; }
+
+    const updated = it.updatedAt?.toDate?.() || it.createdAt?.toDate?.();
+    target.innerHTML = `
+      <div class="detail">
+        <h1 class="title">${escapeHtml(it.title || "(無題)")}</h1>
+        <div class="submeta">${escapeHtml(it.category || "-")} ｜ 更新: ${updated ? fmt(updated) : "—"}</div>
+        <div class="content">${nl2br(escapeHtml(it.content || ""))}</div>
+        <div class="actions">
+          <button class="btn" id="btnBackList">一覧に戻る</button>
+          <button class="btn primary" id="btnEdit">編集</button>
+          <button class="btn warn" id="btnDel">削除</button>
+          <button class="btn ghost" id="btnCopyLink">リンクをコピー</button>
+        </div>
+      </div>
+    `;
+
+    document.getElementById("btnBackList").onclick = ()=> navigateList(it.category || currentCategory);
+    document.getElementById("btnEdit").onclick = ()=> openEditor(it, /*fromView*/true);
+    document.getElementById("btnDel").onclick = async ()=>{
+      if (confirm("このページを削除します。よろしいですか？")){
+        await removePage(it.id);
+        navigateList(it.category || currentCategory);
+      }
+    };
+    document.getElementById("btnCopyLink").onclick = ()=>{
+      const url = `${location.origin}${location.pathname}#/view/${it.id}`;
+      navigator.clipboard.writeText(url).then(()=> alert("リンクをコピーしました"));
+    };
   }
 
-  // === エディタ ===
+  function escapeHtml(s){ return s.replace(/[&<>"']/g, m=>({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[m])); }
+  function nl2br(s){ return s.replace(/\r\n|\r|\n/g, "<br>"); }
+
+  // ===== エディタ =====
   const dlg = () => document.getElementById("editor");
   const fTitle = () => document.getElementById("f-title");
   const fCat = () => document.getElementById("f-cat");
   const fBody = () => document.getElementById("f-body");
-  const saveBtn = () => document.getElementById("saveBtn");
 
-  function openEditor(item=null) {
-    // カテゴリ選択肢を更新
+  function openEditor(item=null, fromView=false){
+    // カテゴリ選択肢
     fCat().innerHTML = "";
-    categories.forEach(c => {
-      const opt = document.createElement("option");
-      opt.value = c; opt.textContent = c;
-      fCat().appendChild(opt);
-    });
+    categories.forEach(c=>{ const opt=document.createElement("option"); opt.value=c; opt.textContent=c; fCat().appendChild(opt); });
 
-    if (item) {
+    if (item){
       editingPageId = item.id;
       fTitle().value = item.title || "";
       fCat().value = item.category || currentCategory;
       fBody().value = item.content || "";
+      dlg().dataset.fromView = fromView ? "1" : "";
       document.getElementById("edTitle").textContent = "ページを編集";
-    } else {
+    }else{
       editingPageId = null;
       fTitle().value = "";
       fCat().value = currentCategory;
       fBody().value = "";
+      dlg().dataset.fromView = "";
       document.getElementById("edTitle").textContent = "新規ページ";
     }
     dlg().showModal();
   }
-  function closeEditor() {
-    dlg().close();
-  }
+  function closeEditor(){ dlg().close(); }
 
-  async function saveEditor() {
-    const payload = {
-      title: fTitle().value.trim(),
-      category: fCat().value,
-      content: fBody().value,
-    };
-    if (!payload.title) {
-      alert("タイトルを入力してください"); return;
-    }
-    if (editingPageId) {
+  async function saveEditor(){
+    const payload = { title: fTitle().value.trim(), category: fCat().value, content: fBody().value };
+    if (!payload.title){ alert("タイトルを入力してください"); return; }
+    let savedId = editingPageId;
+    if (editingPageId){
       await updatePage(editingPageId, payload);
-    } else {
-      await createPage(payload);
+    }else{
+      const ref = await createPage(payload);
+      savedId = ref.id;
     }
     closeEditor();
-    await loadAndRenderList();
+
+    // 編集元が閲覧ビューなら閲覧に戻る／そうでなければ一覧更新
+    if (dlg().dataset.fromView === "1" && savedId){
+      navigateView(savedId);
+    }else{
+      currentCategory = payload.category;
+      renderNav();
+      navigateList(currentCategory);
+    }
   }
 
-  // === expose to DOM ===
+  // ===== ルーティング（ハッシュ）=====
+  function navigateList(cat){
+    currentCategory = cat || currentCategory;
+    location.hash = `#/list/${encodeURIComponent(currentCategory)}`;
+  }
+  function navigateView(id){
+    location.hash = `#/view/${id}`;
+  }
+
+  async function routeFromHash(){
+    const hash = location.hash || "";
+    const mList = hash.match(/^#\/list\/(.+)$/);
+    const mView = hash.match(/^#\/view\/([^\/]+)$/);
+
+    if (mView){
+      // 閲覧ビュー
+      elListView().style.display = "none";
+      elDetailView().style.display = "block";
+      await renderDetail(mView[1]);
+      return;
+    }
+
+    // デフォルト or list
+    elDetailView().style.display = "none";
+    elListView().style.display = "block";
+
+    let cat = currentCategory;
+    if (mList){
+      try{ cat = decodeURIComponent(mList[1]); }catch{ /* noop */ }
+    }
+    if (!categories.includes(cat)) categories.push(cat);
+    currentCategory = cat;
+    renderNav();
+    elSelCat().textContent = currentCategory;
+    await renderList(currentCategory);
+  }
+
+  window.addEventListener("hashchange", ()=>{ if(currentUser){ routeFromHash(); } });
+
+  // ===== expose =====
   window._login = login;
   window._logout = logout;
-  window._newPage = () => openEditor(null);
+  window._newPage = ()=> openEditor(null);
   window._saveEditor = saveEditor;
   window._closeEditor = closeEditor;
 </script>
@@ -335,7 +375,7 @@
 <!-- 未ログイン表示 -->
 <div id="gate" class="gate" style="display:none">
   <h1>カテゴリ別ページ管理</h1>
-  <p>Googleアカウントでログインすると、カテゴリごとのページ一覧／作成／編集／削除が使えます。</p>
+  <p>Googleアカウントでログインすると、カテゴリごとのページ一覧／閲覧／作成／編集／削除が使えます。</p>
   <button class="btn primary" onclick="_login()">Googleでログイン</button>
 </div>
 
@@ -353,14 +393,19 @@
   </header>
 
   <div class="container">
-    <div class="toolbar">
-      <div class="selectedCat">選択中：<span id="selectedCat"></span></div>
-      <div>
-        <button class="btn primary" onclick="_newPage()">新規ページ</button>
+    <!-- 一覧ビュー -->
+    <section id="listView">
+      <div class="toolbar">
+        <div class="selectedCat">選択中：<span id="selectedCat"></span></div>
+        <div><button class="btn primary" onclick="_newPage()">新規ページ</button></div>
       </div>
-    </div>
+      <div id="list"></div>
+    </section>
 
-    <div id="list"></div>
+    <!-- 閲覧ビュー -->
+    <section id="detailView" style="display:none">
+      <div id="detailInner"></div>
+    </section>
   </div>
 </div>
 
@@ -381,12 +426,12 @@
     </div>
     <div class="field">
       <label for="f-body">本文</label>
-      <textarea id="f-body" placeholder="本文を入力"></textarea>
+      <textarea id="f-body" placeholder="本文を入力（改行はそのまま反映）"></textarea>
     </div>
   </div>
   <div class="footer">
     <button class="btn" onclick="_closeEditor()">キャンセル</button>
-    <button id="saveBtn" class="btn primary" onclick="_saveEditor()">保存</button>
+    <button class="btn primary" onclick="_saveEditor()">保存</button>
   </div>
 </dialog>
 
