@@ -3,60 +3,96 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1.0" />
-<title>カテゴリ別ページ管理（閲覧ページ対応）</title>
+<title>カテゴリ別ページ管理（Markdown＋大型編集ビュー）</title>
 
+<!-- ====== Styles ====== -->
 <style>
-  :root { --gap: 14px; }
-  body { font-family: system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans JP", sans-serif; margin:0; color:#222; background:#f7f7f9; }
+  :root { --gap: 14px; --border:#e5e7eb; --bg:#f7f7f9; --ink:#111827; }
+  * { box-sizing: border-box; }
+  body { font-family: system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans JP", sans-serif; margin:0; color:#222; background:var(--bg); }
   header { background:#111827; color:#fff; }
   .topbar { display:flex; align-items:center; justify-content:space-between; gap:20px; padding:12px 16px; }
   .brand { font-weight:700; letter-spacing:.02em; }
   .auth { display:flex; align-items:center; gap:10px; }
   .auth button { background:#374151; color:#fff; border:none; padding:8px 12px; border-radius:8px; cursor:pointer; }
   .auth button:hover { background:#4b5563; }
-
   .nav { display:flex; gap:10px; padding:8px 16px 12px; flex-wrap:wrap; border-top:1px solid #1f2937; }
   .nav .cat { background:#1f2937; color:#e5e7eb; padding:6px 10px; border-radius:999px; font-size:14px; cursor:pointer; border:1px solid transparent; }
   .nav .cat.active { background:#f9fafb; color:#111827; border-color:#111827; }
   .nav .add-cat { background:transparent; color:#93c5fd; border:1px dashed #374151; }
 
-  .container { max-width:1100px; margin: 20px auto; padding: 0 16px; }
-
+  .container { max-width:1200px; margin: 20px auto; padding: 0 16px; }
   .toolbar { display:flex; justify-content:space-between; align-items:center; margin-bottom: var(--gap); gap:var(--gap); }
   .toolbar .selectedCat { font-weight:600; }
-
   .btn { padding:8px 12px; border-radius:8px; border:1px solid #d1d5db; background:#fff; cursor:pointer; }
   .btn.primary { background:#111827; color:#fff; border-color:#111827; }
   .btn.warn { background:#fee2e2; color:#991b1b; border-color:#fecaca; }
   .btn.ghost { background:transparent; }
 
-  .grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: var(--gap); }
-  .card { background:#fff; border:1px solid #e5e7eb; border-radius:14px; padding:14px; display:flex; flex-direction:column; gap:10px; box-shadow:0 1px 2px rgba(0,0,0,0.04); }
+  .grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: var(--gap); }
+  .card { background:#fff; border:1px solid var(--border); border-radius:14px; padding:14px; display:flex; flex-direction:column; gap:10px; box-shadow:0 1px 2px rgba(0,0,0,0.04); }
   .card h3 { margin:0; font-size:16px; line-height:1.4; }
   .meta { font-size:12px; color:#6b7280; }
-  .preview { white-space:pre-wrap; font-size:13px; color:#374151; }
+  .preview { white-space:pre-wrap; font-size:13px; color:#374151; cursor:pointer; }
   .card .actions { display:flex; gap:8px; margin-top:auto; }
-
   .empty { padding:24px; text-align:center; color:#6b7280; background:#fff; border:1px dashed #d1d5db; border-radius:12px; }
-
-  dialog.modal { border:none; border-radius:16px; width:min(720px, 96vw); padding:0; }
-  .modal header { padding:14px 16px; background:#111827; color:#fff; border-radius:16px 16px 0 0; display:flex; justify-content:space-between; align-items:center; }
-  .modal .body { padding:16px; display:grid; gap:12px; background:#fff; border-radius:0 0 16px 16px; }
-  .field { display:grid; gap:6px; }
-  .field input, .field select, .field textarea { width:100%; box-sizing:border-box; padding:10px; border:1px solid #d1d5db; border-radius:10px; font-size:14px; background:#fafafa; }
-  .field textarea { min-height:220px; resize:vertical; }
-  .modal .footer { display:flex; justify-content:flex-end; gap:10px; padding:0 16px 16px; }
-
   .gate { max-width:640px; margin:80px auto; text-align:center; background:#fff; padding:32px; border-radius:16px; border:1px solid #e5e7eb; }
 
-  /* 閲覧ページ */
-  .detail { background:#fff; border:1px solid #e5e7eb; border-radius:16px; padding:22px; box-shadow:0 1px 2px rgba(0,0,0,0.04); }
-  .detail .title { font-size:22px; font-weight:700; margin:0 0 6px; }
+  /* 閲覧ページ（Markdownレンダリング） */
+  .detail { background:#fff; border:1px solid var(--border); border-radius:16px; padding:28px; box-shadow:0 1px 2px rgba(0,0,0,0.04); }
+  .detail .title { font-size:26px; font-weight:800; margin:0 0 6px; color:var(--ink); }
   .detail .submeta { color:#6b7280; font-size:13px; margin-bottom:16px; }
-  .detail .content { font-size:16px; line-height:1.9; color:#1f2937; white-space:pre-wrap; }
-  .detail .actions { display:flex; gap:10px; margin-top:16px; }
+  .detail .content { font-size:16px; line-height:1.9; color:#1f2937; }
+  .detail .content h1, .detail .content h2, .detail .content h3 { margin-top:1.6em; }
+  .detail .content pre { padding:12px; border:1px solid var(--border); border-radius:10px; overflow:auto; background:#0b1020; color:#eaeefb; }
+  .detail .content code { background:#f3f4f6; padding:2px 6px; border-radius:6px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; }
+  .detail .actions { display:flex; gap:10px; margin-top:16px; flex-wrap: wrap; }
+
+  /* 編集ビュー（大型2ペイン） */
+  .edit-wrapper { display:grid; grid-template-columns: 1fr 1fr; gap:16px; min-height: calc(100vh - 160px); }
+  .editor-pane, .preview-pane { background:#fff; border:1px solid var(--border); border-radius:14px; padding:12px; display:flex; flex-direction:column; }
+  .pane-header { display:flex; justify-content:space-between; align-items:center; padding:6px 6px 10px; border-bottom:1px solid var(--border); margin-bottom:8px; }
+  .pane-header .title { font-weight:700; }
+  .editor-controls { display:flex; gap:8px; align-items:center; }
+  .editor-title-row { display:flex; gap:8px; padding:0 12px 12px; }
+  .editor-title-row input, .editor-title-row select { width:100%; padding:10px; border:1px solid #d1d5db; border-radius:8px; background:#fafafa; }
+  .editor-textarea { width:100%; height:100%; min-height:400px; border:none; outline:none; resize:vertical; font: 14px/1.6 ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; }
+  .preview-content { padding:0 6px 6px; overflow:auto; }
+  .edit-toolbar { display:flex; gap:8px; justify-content:flex-end; margin:16px 0; flex-wrap: wrap; }
+  .edit-container { max-width:1200px; margin: 12px auto 28px; padding: 0 16px; }
+  @media (max-width: 960px) {
+    .edit-wrapper { grid-template-columns: 1fr; }
+  }
+
+  /* 小さなヘルプ */
+  .help { font-size:12px; color:#6b7280; }
 </style>
 
+<!-- ====== Markdown / Sanitize / (optional) Highlight ====== -->
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.6/dist/purify.min.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/styles/github-dark.min.css">
+<script src="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/lib/common.min.js"></script>
+<script>
+  // marked 設定（コードブロックをhighlight.jsで装飾）
+  marked.setOptions({
+    highlight: function(code, lang) {
+      try {
+        if (lang && hljs.getLanguage(lang)) {
+          return hljs.highlight(code, { language: lang }).value;
+        }
+      } catch {}
+      return hljs.highlightAuto(code).value;
+    },
+    breaks: true
+  });
+  function renderMarkdown(md) {
+    const raw = marked.parse(md || "");
+    return DOMPurify.sanitize(raw, { USE_PROFILES: { html: true } });
+  }
+</script>
+
+<!-- ====== Firebase SDKs (v10) ====== -->
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
   import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
@@ -94,8 +130,10 @@
   const elNav = () => document.getElementById("nav");
   const elListView = () => document.getElementById("listView");
   const elDetailView = () => document.getElementById("detailView");
+  const elEditView = () => document.getElementById("editView");
   const elList = () => document.getElementById("list");
   const elSelCat = () => document.getElementById("selectedCat");
+  const elDetailInner = () => document.getElementById("detailInner");
 
   // ===== Auth =====
   async function login(){ try{ await signInWithPopup(auth, provider);}catch(e){ alert("ログイン失敗: "+e.message); console.error(e); } }
@@ -108,7 +146,7 @@
       elApp().style.display = "block";
       elUser().textContent = `こんにちは、${user.displayName || "ユーザー"} さん`;
       renderNav();
-      routeFromHash(); // ハッシュに応じて初期表示
+      routeFromHash();
     } else {
       currentUser = null;
       elApp().style.display = "none";
@@ -203,16 +241,20 @@
       const preview = document.createElement("div");
       preview.className = "preview";
       preview.textContent = (it.content || "").slice(0, 140) + ((it.content || "").length > 140 ? "…" : "");
-      preview.style.cursor = "pointer";
       preview.onclick = ()=> navigateView(it.id);
 
       const actions = document.createElement("div");
       actions.className = "actions";
 
+      const view = document.createElement("button");
+      view.className = "btn";
+      view.textContent = "開く";
+      view.onclick = ()=> navigateView(it.id);
+
       const edit = document.createElement("button");
       edit.className = "btn";
       edit.textContent = "編集";
-      edit.onclick = () => openEditor(it);
+      edit.onclick = () => navigateEdit(it.id);
 
       const del = document.createElement("button");
       del.className = "btn warn";
@@ -224,7 +266,7 @@
         }
       };
 
-      actions.append(edit, del);
+      actions.append(view, edit, del);
       card.append(h3, meta, preview, actions);
       grid.appendChild(card);
     });
@@ -233,18 +275,17 @@
 
   function fmt(d){ const y=d.getFullYear(); const m=String(d.getMonth()+1).padStart(2,"0"); const day=String(d.getDate()).padStart(2,"0"); const hh=String(d.getHours()).padStart(2,"0"); const mm=String(d.getMinutes()).padStart(2,"0"); return `${y}/${m}/${day} ${hh}:${mm}`; }
 
-  // ===== 閲覧ビュー =====
+  // ===== 閲覧ビュー（Markdown） =====
   async function renderDetail(id){
     const it = await getPageById(id);
-    const target = document.getElementById("detailInner");
-    if (!it) { target.innerHTML = `<div class="empty">ページが見つかりませんでした。</div>`; return; }
-
+    if (!it) { elDetailInner().innerHTML = `<div class="empty">ページが見つかりませんでした。</div>`; return; }
     const updated = it.updatedAt?.toDate?.() || it.createdAt?.toDate?.();
-    target.innerHTML = `
+
+    elDetailInner().innerHTML = `
       <div class="detail">
         <h1 class="title">${escapeHtml(it.title || "(無題)")}</h1>
         <div class="submeta">${escapeHtml(it.category || "-")} ｜ 更新: ${updated ? fmt(updated) : "—"}</div>
-        <div class="content">${nl2br(escapeHtml(it.content || ""))}</div>
+        <div class="content" id="mdContent"></div>
         <div class="actions">
           <button class="btn" id="btnBackList">一覧に戻る</button>
           <button class="btn primary" id="btnEdit">編集</button>
@@ -253,9 +294,13 @@
         </div>
       </div>
     `;
+    // Markdownを描画
+    const html = renderMarkdown(it.content || "");
+    document.getElementById("mdContent").innerHTML = html;
 
+    // アクション
     document.getElementById("btnBackList").onclick = ()=> navigateList(it.category || currentCategory);
-    document.getElementById("btnEdit").onclick = ()=> openEditor(it, /*fromView*/true);
+    document.getElementById("btnEdit").onclick = ()=> navigateEdit(it.id);
     document.getElementById("btnDel").onclick = async ()=>{
       if (confirm("このページを削除します。よろしいですか？")){
         await removePage(it.id);
@@ -268,59 +313,59 @@
     };
   }
 
-  function escapeHtml(s){ return s.replace(/[&<>"']/g, m=>({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[m])); }
-  function nl2br(s){ return s.replace(/\r\n|\r|\n/g, "<br>"); }
+  function escapeHtml(s){ return (s||"").replace(/[&<>"']/g, m=>({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[m])); }
 
-  // ===== エディタ =====
-  const dlg = () => document.getElementById("editor");
-  const fTitle = () => document.getElementById("f-title");
-  const fCat = () => document.getElementById("f-cat");
-  const fBody = () => document.getElementById("f-body");
+  // ===== 編集ビュー（大型） =====
+  // 参照
+  const eTitle = () => document.getElementById("e-title");
+  const eCat = () => document.getElementById("e-cat");
+  const eBody = () => document.getElementById("e-body");
+  const previewBox = () => document.getElementById("e-preview");
 
-  function openEditor(item=null, fromView=false){
+  async function renderEdit(id){
     // カテゴリ選択肢
-    fCat().innerHTML = "";
-    categories.forEach(c=>{ const opt=document.createElement("option"); opt.value=c; opt.textContent=c; fCat().appendChild(opt); });
+    eCat().innerHTML = "";
+    categories.forEach(c=>{ const opt=document.createElement("option"); opt.value=c; opt.textContent=c; eCat().appendChild(opt); });
 
-    if (item){
-      editingPageId = item.id;
-      fTitle().value = item.title || "";
-      fCat().value = item.category || currentCategory;
-      fBody().value = item.content || "";
-      dlg().dataset.fromView = fromView ? "1" : "";
-      document.getElementById("edTitle").textContent = "ページを編集";
-    }else{
+    if (id) {
+      const it = await getPageById(id);
+      if (!it){ alert("ページが見つかりません"); navigateList(currentCategory); return; }
+      editingPageId = it.id;
+      eTitle().value = it.title || "";
+      eCat().value = it.category || currentCategory;
+      eBody().value = it.content || "";
+    } else {
       editingPageId = null;
-      fTitle().value = "";
-      fCat().value = currentCategory;
-      fBody().value = "";
-      dlg().dataset.fromView = "";
-      document.getElementById("edTitle").textContent = "新規ページ";
+      eTitle().value = "";
+      eCat().value = currentCategory;
+      eBody().value = "";
     }
-    dlg().showModal();
+    // 初回プレビュー
+    previewBox().innerHTML = renderMarkdown(eBody().value);
   }
-  function closeEditor(){ dlg().close(); }
 
-  async function saveEditor(){
-    const payload = { title: fTitle().value.trim(), category: fCat().value, content: fBody().value };
+  // 入力→ライブプレビュー
+  function bindLivePreview(){
+    eBody().addEventListener("input", () => {
+      previewBox().innerHTML = renderMarkdown(eBody().value);
+    });
+  }
+
+  async function saveEdit(){
+    const payload = {
+      title: eTitle().value.trim(),
+      category: eCat().value,
+      content: eBody().value
+    };
     if (!payload.title){ alert("タイトルを入力してください"); return; }
     let savedId = editingPageId;
-    if (editingPageId){
+    if (editingPageId) {
       await updatePage(editingPageId, payload);
-    }else{
+    } else {
       const ref = await createPage(payload);
       savedId = ref.id;
     }
-    closeEditor();
-
-    // 編集元が閲覧ビューなら閲覧に戻る／そうでなければ一覧更新
-    if (dlg().dataset.fromView === "1" && savedId){
-      navigateView(savedId);
-    }else{
-      currentCategory = payload.category;
-      renderNav();
-      navigateList(currentCategory);
-    }
+    navigateView(savedId);
   }
 
   // ===== ルーティング（ハッシュ）=====
@@ -331,27 +376,44 @@
   function navigateView(id){
     location.hash = `#/view/${id}`;
   }
+  function navigateEdit(id){
+    if (id) {
+      location.hash = `#/edit/${id}`;
+    } else {
+      location.hash = `#/edit/new`;
+    }
+  }
 
   async function routeFromHash(){
     const hash = location.hash || "";
     const mList = hash.match(/^#\/list\/(.+)$/);
     const mView = hash.match(/^#\/view\/([^\/]+)$/);
+    const mEdit = hash.match(/^#\/edit\/([^\/]+)$/);
+
+    // 表示切替
+    elListView().style.display = "none";
+    elDetailView().style.display = "none";
+    elEditView().style.display = "none";
 
     if (mView){
-      // 閲覧ビュー
-      elListView().style.display = "none";
       elDetailView().style.display = "block";
       await renderDetail(mView[1]);
       return;
     }
+    if (mEdit){
+      elEditView().style.display = "block";
+      const id = mEdit[1] === "new" ? null : mEdit[1];
+      await renderEdit(id);
+      // 一度だけバインド（重複防止）
+      if (!eBody().dataset.bound) { bindLivePreview(); eBody().dataset.bound = "1"; }
+      return;
+    }
 
     // デフォルト or list
-    elDetailView().style.display = "none";
     elListView().style.display = "block";
-
     let cat = currentCategory;
     if (mList){
-      try{ cat = decodeURIComponent(mList[1]); }catch{ /* noop */ }
+      try{ cat = decodeURIComponent(mList[1]); }catch{}
     }
     if (!categories.includes(cat)) categories.push(cat);
     currentCategory = cat;
@@ -365,9 +427,9 @@
   // ===== expose =====
   window._login = login;
   window._logout = logout;
-  window._newPage = ()=> openEditor(null);
-  window._saveEditor = saveEditor;
-  window._closeEditor = closeEditor;
+  window._newPage = ()=> navigateEdit(null);
+  window._saveEdit = saveEdit;
+  window._backToView = ()=> history.length ? history.back() : navigateList(currentCategory);
 </script>
 </head>
 <body>
@@ -375,7 +437,7 @@
 <!-- 未ログイン表示 -->
 <div id="gate" class="gate" style="display:none">
   <h1>カテゴリ別ページ管理</h1>
-  <p>Googleアカウントでログインすると、カテゴリごとのページ一覧／閲覧／作成／編集／削除が使えます。</p>
+  <p>Googleアカウントでログインすると、カテゴリごとの<strong>一覧／閲覧（Markdown）／作成・編集（大型ビュー）／削除</strong>が使えます。</p>
   <button class="btn primary" onclick="_login()">Googleでログイン</button>
 </div>
 
@@ -394,46 +456,50 @@
 
   <div class="container">
     <!-- 一覧ビュー -->
-    <section id="listView">
+    <section id="listView" style="display:none">
       <div class="toolbar">
         <div class="selectedCat">選択中：<span id="selectedCat"></span></div>
-        <div><button class="btn primary" onclick="_newPage()">新規ページ</button></div>
+        <div>
+          <button class="btn primary" onclick="_newPage()">新規ページ</button>
+        </div>
       </div>
       <div id="list"></div>
     </section>
 
-    <!-- 閲覧ビュー -->
+    <!-- 閲覧ビュー（Markdown）-->
     <section id="detailView" style="display:none">
       <div id="detailInner"></div>
     </section>
+
+    <!-- 編集ビュー（大型 2ペイン） -->
+    <section id="editView" class="edit-container" style="display:none">
+      <div class="editor-title-row">
+        <input id="e-title" type="text" placeholder="タイトル（必須）">
+        <select id="e-cat" title="カテゴリ"></select>
+      </div>
+      <div class="edit-wrapper">
+        <div class="editor-pane">
+          <div class="pane-header">
+            <div class="title">Markdownエディタ</div>
+            <div class="editor-controls help">**太字** / *斜体* / `コード` / ```lang コードブロック``` / # 見出し</div>
+          </div>
+          <textarea id="e-body" class="editor-textarea" placeholder="# ここにMarkdownを書きます"></textarea>
+        </div>
+        <div class="preview-pane">
+          <div class="pane-header">
+            <div class="title">プレビュー</div>
+            <div class="help">レンダリングはDOMPurifyで無害化しています</div>
+          </div>
+          <div id="e-preview" class="preview-content detail content"></div>
+        </div>
+      </div>
+      <div class="edit-toolbar">
+        <button class="btn" onclick="_backToView()">戻る</button>
+        <button class="btn primary" onclick="_saveEdit()">保存</button>
+      </div>
+    </section>
   </div>
 </div>
-
-<!-- エディタモーダル -->
-<dialog id="editor" class="modal">
-  <header>
-    <div id="edTitle">新規ページ</div>
-    <button class="btn" onclick="_closeEditor()">✕</button>
-  </header>
-  <div class="body">
-    <div class="field">
-      <label for="f-title">タイトル</label>
-      <input id="f-title" type="text" placeholder="タイトルを入力" />
-    </div>
-    <div class="field">
-      <label for="f-cat">カテゴリ</label>
-      <select id="f-cat"></select>
-    </div>
-    <div class="field">
-      <label for="f-body">本文</label>
-      <textarea id="f-body" placeholder="本文を入力（改行はそのまま反映）"></textarea>
-    </div>
-  </div>
-  <div class="footer">
-    <button class="btn" onclick="_closeEditor()">キャンセル</button>
-    <button class="btn primary" onclick="_saveEditor()">保存</button>
-  </div>
-</dialog>
 
 </body>
 </html>
