@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1.0" />
+<title>カテゴリ別ページ管理（Googleログイン対応）</title>
+
+<!-- ==== Minimal CSS ==== -->
+<style>
+  :root { --gap: 14px; }
+  body { font-family: system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans JP", sans-serif; margin:0; color:#222; background:#f7f7f9; }
+  header { background:#111827; color:#fff; }
+  .topbar { display:flex; align-items:center; justify-content:space-between; gap:20px; padding:12px 16px; }
+  .brand { font-weight:700; letter-spacing:.02em; }
+  .auth { display:flex; align-items:center; gap:10px; }
+  .auth button { background:#374151; color:#fff; border:none; padding:8px 12px; border-radius:8px; cursor:pointer; }
+  .auth button:hover { background:#4b5563; }
+
+  .nav { display:flex; gap:10px; padding:8px 16px 12px; flex-wrap:wrap; border-top:1px solid #1f2937; }
+  .nav .cat { background:#1f2937; color:#e5e7eb; padding:6px 10px; border-radius:999px; font-size:14px; cursor:pointer; border:1px solid transparent; }
+  .nav .cat.active { background:#f9fafb; color:#111827; border-color:#111827; }
+  .nav .add-cat { background:transparent; color:#93c5fd; border:1px dashed #374151; }
+  .container { max-width:1100px; margin: 20px auto; padding: 0 16px; }
+
+  .toolbar { display:flex; justify-content:space-between; align-items:center; margin-bottom: var(--gap); gap:var(--gap); }
+  .toolbar .selectedCat { font-weight:600; }
+
+  .btn { padding:8px 12px; border-radius:8px; border:1px solid #d1d5db; background:#fff; cursor:pointer; }
+  .btn.primary { background:#111827; color:#fff; border-color:#111827; }
+  .btn.warn { background:#fee2e2; color:#991b1b; border-color:#fecaca; }
+  .btn:disabled { opacity:.6; cursor:not-allowed; }
+
+  .grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: var(--gap); }
+  .card { background:#fff; border:1px solid #e5e7eb; border-radius:14px; padding:14px; display:flex; flex-direction:column; gap:10px; box-shadow:0 1px 2px rgba(0,0,0,0.04); }
+  .card h3 { margin:0; font-size:16px; line-height:1.4; }
+  .meta { font-size:12px; color:#6b7280; }
+  .card .actions { display:flex; gap:8px; margin-top:auto; }
+
+  .empty { padding:24px; text-align:center; color:#6b7280; background:#fff; border:1px dashed #d1d5db; border-radius:12px; }
+
+  dialog.modal { border:none; border-radius:16px; width:min(720px, 96vw); padding:0; }
+  .modal header { padding:14px 16px; background:#111827; color:#fff; border-radius:16px 16px 0 0; display:flex; justify-content:space-between; align-items:center; }
+  .modal .body { padding:16px; display:grid; gap:12px; background:#fff; border-radius:0 0 16px 16px; }
+  .field { display:grid; gap:6px; }
+  .field input, .field select, .field textarea { width:100%; box-sizing:border-box; padding:10px; border:1px solid #d1d5db; border-radius:10px; font-size:14px; background:#fafafa; }
+  .field textarea { min-height:220px; resize:vertical; }
+  .modal .footer { display:flex; justify-content:flex-end; gap:10px; padding:0 16px 16px; }
+
+  .gate { max-width:640px; margin:80px auto; text-align:center; background:#fff; padding:32px; border-radius:16px; border:1px solid #e5e7eb; }
+</style>
+
+<!-- ==== Firebase SDKs (v10) ==== -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+  import {
+    getFirestore, collection, addDoc, getDocs, query, where,
+    updateDoc, deleteDoc, doc, serverTimestamp, orderBy
+  } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+  // === 設定（必要に応じて変更） ===
+  const firebaseConfig = {
+    apiKey: "AIzaSyDuNluIfeulzr_hCr7bHtnCxE1cBneB4kM",
+    authDomain: "masu-memo.firebaseapp.com",
+    projectId: "masu-memo",
+    storageBucket: "masu-memo.appspot.com",
+    messagingSenderId: "1065347011702",
+    appId: "1:1065347011702:web:e417d565f28d000da83b57"
+  };
+  const DEFAULT_CATEGORIES = ["その他", "ブログ", "技術"]; // ここに追加で増やせます
+
+  // === 初期化 ===
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth();
+  const db = getFirestore();
+
+  const provider = new GoogleAuthProvider();
+  let currentUser = null;
+  let categories = [...DEFAULT_CATEGORIES];
+  let currentCategory = categories[0];
+  let editingPageId = null; // 編集中のドキュメントID
+
+  // === DOM ===
+  const elGate = () => document.getElementById("gate");
+  const elApp = () => document.getElementById("app");
+  const elUser = () => document.getElementById("user");
+  const elNav = () => document.getElementById("nav");
+  const elList = () => document.getElementById("list");
+  const elSelCat = () => document.getElementById("selectedCat");
+
+  // === Auth ===
+  async function login() {
+    try {
+      await signInWithPopup(auth, provider);
+    } catch (e) {
+      alert("ログインに失敗しました: " + e.message);
+      console.error(e);
+    }
+  }
+  async function logout() {
+    try {
+      await signOut(auth);
+    } catch (e) {
+      alert("ログアウトに失敗しました: " + e.message);
+      console.error(e);
+    }
+  }
+
+  onAuthStateChanged(auth, async (user) => {
+    if (user) {
+      currentUser = user;
+      elGate().style.display = "none";
+      elApp().style.display = "block";
+      elUser().textContent = `こんにちは、${user.displayName || "ユーザー"} さん`;
+      renderNav();
+      await loadAndRenderList(); // 初期カテゴリで一覧
+    } else {
+      currentUser = null;
+      elApp().style.display = "none";
+      elGate().style.display = "block";
+    }
+  });
+
+  // === Firestore helpers ===
+  function pagesColRef() {
+    if (!currentUser) throw new Error("not authed");
+    return collection(db, "users", currentUser.uid, "pages");
+  }
+
+  async function loadPagesByCategory(cat) {
+    // インデックス不要にしたいので orderBy は使わず、取得後にソート
+    const q = query(pagesColRef(), where("category", "==", cat));
+    const snap = await getDocs(q);
+    const rows = [];
+    snap.forEach((d) => {
+      const data = d.data();
+      rows.push({ id: d.id, ...data });
+    });
+    // updatedAt 降順（なければ createdAt）
+    rows.sort((a, b) => {
+      const ta = (a.updatedAt?.toMillis?.() || a.createdAt?.toMillis?.() || 0);
+      const tb = (b.updatedAt?.toMillis?.() || b.createdAt?.toMillis?.() || 0);
+      return tb - ta;
+    });
+    return rows;
+  }
+
+  async function createPage({ title, category, content }) {
+    return await addDoc(pagesColRef(), {
+      title, category, content,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+  }
+
+  async function updatePage(id, { title, category, content }) {
+    const ref = doc(db, "users", currentUser.uid, "pages", id);
+    await updateDoc(ref, {
+      title, category, content,
+      updatedAt: serverTimestamp(),
+    });
+  }
+
+  async function removePage(id) {
+    const ref = doc(db, "users", currentUser.uid, "pages", id);
+    await deleteDoc(ref);
+  }
+
+  // === UI: ナビ ===
+  function renderNav() {
+    elNav().innerHTML = "";
+    categories.forEach(cat => {
+      const b = document.createElement("button");
+      b.className = "cat" + (cat === currentCategory ? " active" : "");
+      b.textContent = cat;
+      b.onclick = async () => {
+        currentCategory = cat;
+        renderNav();
+        await loadAndRenderList();
+      };
+      elNav().appendChild(b);
+    });
+    // 将来カテゴリ追加：必要なら解放
+    const add = document.createElement("button");
+    add.className = "cat add-cat";
+    add.textContent = "＋カテゴリ追加";
+    add.title = "一時的にクライアント側に追加されます（必要なら固定化してご利用ください）";
+    add.onclick = async () => {
+      const name = prompt("追加するカテゴリ名を入力してください");
+      if (name && !categories.includes(name)) {
+        categories.push(name);
+        currentCategory = name;
+        renderNav();
+        await loadAndRenderList();
+      }
+    };
+    elNav().appendChild(add);
+
+    elSelCat().textContent = currentCategory;
+  }
+
+  // === UI: 一覧 ===
+  async function loadAndRenderList() {
+    if (!currentUser) return;
+    const items = await loadPagesByCategory(currentCategory);
+    renderList(items);
+  }
+
+  function renderList(items) {
+    const wrap = elList();
+    wrap.innerHTML = "";
+    if (!items.length) {
+      wrap.innerHTML = `<div class="empty">このカテゴリのページはまだありません。「新規ページ」を押して作成してください。</div>`;
+      return;
+    }
+    const grid = document.createElement("div");
+    grid.className = "grid";
+
+    for (const it of items) {
+      const card = document.createElement("div");
+      card.className = "card";
+
+      const h3 = document.createElement("h3");
+      h3.textContent = it.title || "(無題)";
+
+      const meta = document.createElement("div");
+      const updated = it.updatedAt?.toDate?.() || it.createdAt?.toDate?.();
+      meta.className = "meta";
+      meta.textContent = `${it.category} ｜ 更新: ${updated ? fmt(updated) : "—"}`;
+
+      const preview = document.createElement("div");
+      preview.style.whiteSpace = "pre-wrap";
+      preview.style.fontSize = "13px";
+      preview.style.color = "#374151";
+      preview.textContent = (it.content || "").slice(0, 140) + ((it.content || "").length > 140 ? "…" : "");
+
+      const actions = document.createElement("div");
+      actions.className = "actions";
+
+      const edit = document.createElement("button");
+      edit.className = "btn";
+      edit.textContent = "編集";
+      edit.onclick = () => openEditor(it);
+
+      const del = document.createElement("button");
+      del.className = "btn warn";
+      del.textContent = "削除";
+      del.onclick = async () => {
+        if (confirm("このページを削除します。よろしいですか？")) {
+          await removePage(it.id);
+          await loadAndRenderList();
+        }
+      };
+
+      actions.append(edit, del);
+      card.append(h3, meta, preview, actions);
+      grid.appendChild(card);
+    }
+
+    wrap.appendChild(grid);
+  }
+
+  function fmt(d) {
+    const y = d.getFullYear();
+    const m = String(d.getMonth()+1).padStart(2,"0");
+    const day = String(d.getDate()).padStart(2,"0");
+    const hh = String(d.getHours()).padStart(2,"0");
+    const mm = String(d.getMinutes()).padStart(2,"0");
+    return `${y}/${m}/${day} ${hh}:${mm}`;
+  }
+
+  // === エディタ ===
+  const dlg = () => document.getElementById("editor");
+  const fTitle = () => document.getElementById("f-title");
+  const fCat = () => document.getElementById("f-cat");
+  const fBody = () => document.getElementById("f-body");
+  const saveBtn = () => document.getElementById("saveBtn");
+
+  function openEditor(item=null) {
+    // カテゴリ選択肢を更新
+    fCat().innerHTML = "";
+    categories.forEach(c => {
+      const opt = document.createElement("option");
+      opt.value = c; opt.textContent = c;
+      fCat().appendChild(opt);
+    });
+
+    if (item) {
+      editingPageId = item.id;
+      fTitle().value = item.title || "";
+      fCat().value = item.category || currentCategory;
+      fBody().value = item.content || "";
+      document.getElementById("edTitle").textContent = "ページを編集";
+    } else {
+      editingPageId = null;
+      fTitle().value = "";
+      fCat().value = currentCategory;
+      fBody().value = "";
+      document.getElementById("edTitle").textContent = "新規ページ";
+    }
+    dlg().showModal();
+  }
+  function closeEditor() {
+    dlg().close();
+  }
+
+  async function saveEditor() {
+    const payload = {
+      title: fTitle().value.trim(),
+      category: fCat().value,
+      content: fBody().value,
+    };
+    if (!payload.title) {
+      alert("タイトルを入力してください"); return;
+    }
+    if (editingPageId) {
+      await updatePage(editingPageId, payload);
+    } else {
+      await createPage(payload);
+    }
+    closeEditor();
+    await loadAndRenderList();
+  }
+
+  // === expose to DOM ===
+  window._login = login;
+  window._logout = logout;
+  window._newPage = () => openEditor(null);
+  window._saveEditor = saveEditor;
+  window._closeEditor = closeEditor;
+</script>
+</head>
+<body>
+
+<!-- 未ログイン表示 -->
+<div id="gate" class="gate" style="display:none">
+  <h1>カテゴリ別ページ管理</h1>
+  <p>Googleアカウントでログインすると、カテゴリごとのページ一覧／作成／編集／削除が使えます。</p>
+  <button class="btn primary" onclick="_login()">Googleでログイン</button>
+</div>
+
+<!-- アプリ本体（ログイン後） -->
+<div id="app" style="display:none">
+  <header>
+    <div class="topbar">
+      <div class="brand">カテゴリ別ページ管理</div>
+      <div class="auth">
+        <div id="user"></div>
+        <button onclick="_logout()">ログアウト</button>
+      </div>
+    </div>
+    <nav id="nav" class="nav"></nav>
+  </header>
+
+  <div class="container">
+    <div class="toolbar">
+      <div class="selectedCat">選択中：<span id="selectedCat"></span></div>
+      <div>
+        <button class="btn primary" onclick="_newPage()">新規ページ</button>
+      </div>
+    </div>
+
+    <div id="list"></div>
+  </div>
+</div>
+
+<!-- エディタモーダル -->
+<dialog id="editor" class="modal">
+  <header>
+    <div id="edTitle">新規ページ</div>
+    <button class="btn" onclick="_closeEditor()">✕</button>
+  </header>
+  <div class="body">
+    <div class="field">
+      <label for="f-title">タイトル</label>
+      <input id="f-title" type="text" placeholder="タイトルを入力" />
+    </div>
+    <div class="field">
+      <label for="f-cat">カテゴリ</label>
+      <select id="f-cat"></select>
+    </div>
+    <div class="field">
+      <label for="f-body">本文</label>
+      <textarea id="f-body" placeholder="本文を入力"></textarea>
+    </div>
+  </div>
+  <div class="footer">
+    <button class="btn" onclick="_closeEditor()">キャンセル</button>
+    <button id="saveBtn" class="btn primary" onclick="_saveEditor()">保存</button>
+  </div>
+</dialog>
+
+</body>
+</html>
