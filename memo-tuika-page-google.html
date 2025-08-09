@@ -284,9 +284,33 @@
       const b = document.createElement("button");
       b.className = "cat" + (cat === currentCategory ? " active" : "");
       b.textContent = cat;
-      b.onclick = () => { currentCategory = cat; renderNav(); navigateList(cat); };
+      b.onclick = () => {
+        currentCategory = cat;
+        renderNav();
+        navigateList(cat);
+      };
+
+      // ★ 右クリックで削除（デフォルトのコンテキストメニュー無効化）
+      b.addEventListener("contextmenu", (e) => {
+        e.preventDefault();
+        if (DEFAULT_CATEGORIES.includes(cat)) {
+          alert("このカテゴリは削除できません");
+          return;
+        }
+        if (confirm(`カテゴリ「${cat}」を削除しますか？`)) {
+          categories = categories.filter(c => c !== cat);
+          // 表示中カテゴリだった場合は先頭に戻す
+          if (currentCategory === cat) {
+            currentCategory = categories[0];
+          }
+          renderNav();
+          navigateList(currentCategory);
+        }
+      });
+
       elNav().appendChild(b);
     });
+
     const add = document.createElement("button");
     add.className = "cat add-cat";
     add.textContent = "＋カテゴリ追加";
