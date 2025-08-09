@@ -3,9 +3,8 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1.0" />
-<title>カテゴリ別ページ管理（Markdown＋大型編集ビュー）</title>
+<title>カテゴリ別ページ管理（Markdown＋大型編集＋画像アップロード）</title>
 
-<!-- ====== Styles ====== -->
 <style>
   :root { --gap: 14px; --border:#e5e7eb; --bg:#f7f7f9; --ink:#111827; }
   * { box-sizing: border-box; }
@@ -38,61 +37,63 @@
   .empty { padding:24px; text-align:center; color:#6b7280; background:#fff; border:1px dashed #d1d5db; border-radius:12px; }
   .gate { max-width:640px; margin:80px auto; text-align:center; background:#fff; padding:32px; border-radius:16px; border:1px solid #e5e7eb; }
 
-  /* 閲覧ページ（Markdownレンダリング） */
+  /* 閲覧（Markdown） */
   .detail { background:#fff; border:1px solid var(--border); border-radius:16px; padding:28px; box-shadow:0 1px 2px rgba(0,0,0,0.04); }
   .detail .title { font-size:26px; font-weight:800; margin:0 0 6px; color:var(--ink); }
   .detail .submeta { color:#6b7280; font-size:13px; margin-bottom:16px; }
   .detail .content { font-size:16px; line-height:1.9; color:#1f2937; }
-  .detail .content h1, .detail .content h2, .detail .content h3 { margin-top:1.6em; }
+  .detail .content img { max-width:100%; height:auto; }
   .detail .content pre { padding:12px; border:1px solid var(--border); border-radius:10px; overflow:auto; background:#0b1020; color:#eaeefb; }
   .detail .content code { background:#f3f4f6; padding:2px 6px; border-radius:6px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; }
   .detail .actions { display:flex; gap:10px; margin-top:16px; flex-wrap: wrap; }
 
-  /* 編集ビュー（大型2ペイン） */
-  .edit-wrapper { display:grid; grid-template-columns: 1fr 1fr; gap:16px; min-height: calc(100vh - 160px); }
+  /* 編集（大型2ペイン） */
+  .edit-wrapper { display:grid; grid-template-columns: 1fr 1fr; gap:16px; min-height: calc(100vh - 180px); }
   .editor-pane, .preview-pane { background:#fff; border:1px solid var(--border); border-radius:14px; padding:12px; display:flex; flex-direction:column; }
   .pane-header { display:flex; justify-content:space-between; align-items:center; padding:6px 6px 10px; border-bottom:1px solid var(--border); margin-bottom:8px; }
   .pane-header .title { font-weight:700; }
-  .editor-controls { display:flex; gap:8px; align-items:center; }
+  .editor-controls { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
   .editor-title-row { display:flex; gap:8px; padding:0 12px 12px; }
   .editor-title-row input, .editor-title-row select { width:100%; padding:10px; border:1px solid #d1d5db; border-radius:8px; background:#fafafa; }
-  .editor-textarea { width:100%; height:100%; min-height:400px; border:none; outline:none; resize:vertical; font: 14px/1.6 ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; }
+  .editor-textarea { width:100%; height:100%; min-height:420px; border:none; outline:none; resize:vertical; font: 14px/1.6 ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; }
   .preview-content { padding:0 6px 6px; overflow:auto; }
   .edit-toolbar { display:flex; gap:8px; justify-content:flex-end; margin:16px 0; flex-wrap: wrap; }
   .edit-container { max-width:1200px; margin: 12px auto 28px; padding: 0 16px; }
-  @media (max-width: 960px) {
-    .edit-wrapper { grid-template-columns: 1fr; }
-  }
 
-  /* 小さなヘルプ */
-  .help { font-size:12px; color:#6b7280; }
+  /* 画像アップロードUI */
+  .uploader { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .dropzone {
+    border:2px dashed #c7ccd5; border-radius:10px; padding:10px 12px; background:#fafafa;
+    font-size:13px; color:#6b7280; cursor:pointer;
+  }
+  .dropzone.dragover { background:#eef6ff; border-color:#93c5fd; color:#111827; }
+  .progress { height:8px; border-radius:6px; background:#e5e7eb; overflow:hidden; width:200px; }
+  .progress > div { height:8px; background:#111827; width:0%; transition: width .2s ease; }
+  .asset-list { display:flex; gap:10px; flex-wrap:wrap; margin-top:6px; }
+  .asset { border:1px solid #e5e7eb; border-radius:10px; padding:6px; background:#fff; display:flex; align-items:center; gap:8px; }
+  .asset img { width:48px; height:48px; object-fit:cover; border-radius:6px; }
+  .asset .mini-btn { font-size:12px; padding:4px 6px; border-radius:6px; border:1px solid #d1d5db; background:#fff; cursor:pointer; }
+  @media (max-width: 960px) { .edit-wrapper { grid-template-columns: 1fr; } }
 </style>
 
-<!-- ====== Markdown / Sanitize / (optional) Highlight ====== -->
+<!-- Markdown / Sanitize / Highlight -->
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.6/dist/purify.min.js"></script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/styles/github-dark.min.css">
 <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/lib/common.min.js"></script>
 <script>
-  // marked 設定（コードブロックをhighlight.jsで装飾）
   marked.setOptions({
-    highlight: function(code, lang) {
-      try {
-        if (lang && hljs.getLanguage(lang)) {
-          return hljs.highlight(code, { language: lang }).value;
-        }
-      } catch {}
+    highlight: (code, lang) => {
+      try { if (lang && hljs.getLanguage(lang)) return hljs.highlight(code, { language: lang }).value; }
+      catch {}
       return hljs.highlightAuto(code).value;
     },
     breaks: true
   });
-  function renderMarkdown(md) {
-    const raw = marked.parse(md || "");
-    return DOMPurify.sanitize(raw, { USE_PROFILES: { html: true } });
-  }
+  const renderMarkdown = (md) => DOMPurify.sanitize(marked.parse(md || ""), { USE_PROFILES: { html: true } });
 </script>
 
-<!-- ====== Firebase SDKs (v10) ====== -->
+<!-- Firebase SDKs -->
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
   import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
@@ -100,6 +101,9 @@
     getFirestore, collection, addDoc, getDocs, query, where,
     updateDoc, deleteDoc, doc, serverTimestamp, getDoc
   } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+  import {
+    getStorage, ref as sRef, uploadBytesResumable, getDownloadURL, deleteObject, listAll
+  } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
 
   // ===== 設定 =====
   const firebaseConfig = {
@@ -116,6 +120,7 @@
   const app = initializeApp(firebaseConfig);
   const auth = getAuth();
   const db = getFirestore();
+  const storage = getStorage();
   const provider = new GoogleAuthProvider();
 
   let currentUser = null;
@@ -134,6 +139,17 @@
   const elList = () => document.getElementById("list");
   const elSelCat = () => document.getElementById("selectedCat");
   const elDetailInner = () => document.getElementById("detailInner");
+
+  // 編集用
+  const eTitle = () => document.getElementById("e-title");
+  const eCat = () => document.getElementById("e-cat");
+  const eBody = () => document.getElementById("e-body");
+  const previewBox = () => document.getElementById("e-preview");
+  const filePicker = () => document.getElementById("filePicker");
+  const dropzone = () => document.getElementById("dropzone");
+  const prog = () => document.getElementById("prog");
+  const progBar = () => document.getElementById("progbar");
+  const assetList = () => document.getElementById("assetList");
 
   // ===== Auth =====
   async function login(){ try{ await signInWithPopup(auth, provider);}catch(e){ alert("ログイン失敗: "+e.message); console.error(e); } }
@@ -154,15 +170,11 @@
     }
   });
 
-  // ===== Firestore helpers =====
-  function pagesColRef() {
-    if (!currentUser) throw new Error("not authed");
-    return collection(db, "users", currentUser.uid, "pages");
-  }
+  // ===== Firestore =====
+  const pagesColRef = () => collection(db, "users", currentUser.uid, "pages");
 
   async function loadPagesByCategory(cat) {
-    const q = query(pagesColRef(), where("category", "==", cat));
-    const snap = await getDocs(q);
+    const snap = await getDocs(query(pagesColRef(), where("category", "==", cat)));
     const rows = [];
     snap.forEach((d)=> rows.push({ id:d.id, ...d.data() }));
     rows.sort((a,b)=>{
@@ -172,24 +184,100 @@
     });
     return rows;
   }
-
   async function getPageById(id){
     const d = await getDoc(doc(db, "users", currentUser.uid, "pages", id));
-    if (!d.exists()) return null;
-    return { id: d.id, ...d.data() };
+    return d.exists() ? { id: d.id, ...d.data() } : null;
   }
-
   async function createPage({ title, category, content }) {
     return await addDoc(pagesColRef(), { title, category, content, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
   }
-  async function updatePage(id, { title, category, content }) {
-    await updateDoc(doc(db,"users",currentUser.uid,"pages",id), { title, category, content, updatedAt: serverTimestamp() });
+  async function updatePage(id, payload) {
+    await updateDoc(doc(db,"users",currentUser.uid,"pages",id), { ...payload, updatedAt: serverTimestamp() });
   }
   async function removePage(id) {
     await deleteDoc(doc(db,"users",currentUser.uid,"pages",id));
+    // 画像も（任意）一括削除したいときは listAll → deleteObject で削除可能
   }
 
-  // ===== ナビ =====
+  // ===== Storage（画像）=====
+  const pathFor = (pageIdOrNew) => `users/${currentUser.uid}/assets/${pageIdOrNew}`;
+  function insertAtCursor(textarea, text){
+    const start = textarea.selectionStart || 0, end = textarea.selectionEnd || 0;
+    const before = textarea.value.substring(0, start);
+    const after  = textarea.value.substring(end);
+    textarea.value = before + text + after;
+    const pos = start + text.length;
+    textarea.selectionStart = textarea.selectionEnd = pos;
+    textarea.focus();
+    previewBox().innerHTML = renderMarkdown(eBody().value);
+  }
+
+  async function uploadFiles(files){
+    if (!files || !files.length) return;
+    if (!currentUser) return alert("ログインしてください");
+    const pageKey = editingPageId || "new"; // 新規作成中も仮置き
+    prog.style.display = "block";
+    for (const file of files){
+      if (!file.type.startsWith("image/")) { alert("画像ファイルのみアップロードできます"); continue; }
+      const safeName = `${Date.now()}_${file.name.replace(/[^\w.\-]/g,"_")}`;
+      const ref = sRef(storage, `${pathFor(pageKey)}/${safeName}`);
+      const task = uploadBytesResumable(ref, file, { contentType: file.type });
+      await new Promise((resolve, reject)=>{
+        task.on('state_changed', (snap)=>{
+          const pct = Math.round((snap.bytesTransferred / snap.totalBytes) * 100);
+          progBar.style.width = pct + "%";
+        }, reject, async ()=>{
+          const url = await getDownloadURL(task.snapshot.ref);
+          // Markdown 文字列を差し込み（alt は元ファイル名）
+          insertAtCursor(eBody(), `\n\n![${file.name}](${url})\n\n`);
+          resolve();
+        });
+      });
+    }
+    prog.style.display = "none";
+    // 一覧更新
+    await refreshAssetList();
+  }
+
+  async function refreshAssetList(){
+    // 現在の編集対象のフォルダを列挙
+    const key = editingPageId || "new";
+    const baseRef = sRef(storage, pathFor(key));
+    assetList().innerHTML = "";
+    try{
+      const res = await listAll(baseRef);
+      if (!res.items.length){ assetList().innerHTML = `<span class="help">（アップロード済み画像はまだありません）</span>`; return; }
+      for (const itemRef of res.items){
+        const url = await getDownloadURL(itemRef);
+        const div = document.createElement("div");
+        div.className = "asset";
+        div.innerHTML = `
+          <img src="${url}" alt="">
+          <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
+            <button class="mini-btn" data-act="ins-md">挿入</button>
+            <a class="mini-btn" href="${url}" target="_blank" rel="noopener">開く</a>
+            <button class="mini-btn" data-act="del">削除</button>
+          </div>
+        `;
+        div.querySelector('[data-act="ins-md"]').onclick = () => insertAtCursor(eBody(), `\n\n![](${url})\n\n`);
+        div.querySelector('[data-act="del"]').onclick = async () => {
+          if (confirm("この画像をStorageから削除しますか？")){
+            await deleteObject(itemRef);
+            await refreshAssetList();
+          }
+        };
+        assetList().appendChild(div);
+      }
+    }catch(e){
+      assetList().innerHTML = `<span class="help">画像リストの取得に失敗しました：${e.message}</span>`;
+    }
+  }
+
+  // 保存時：new 配下の画像を実IDへ移動したい場合（任意）
+  // ここでは簡易化のため移動せず、そのまま利用します。
+  // 運用で整理したい場合は、保存後に listAll → reupload → delete で移行してください。
+
+  // ===== ナビ／一覧／閲覧は前回同様 =====
   function renderNav() {
     elNav().innerHTML = "";
     categories.forEach(cat => {
@@ -214,7 +302,6 @@
     elNav().appendChild(add);
   }
 
-  // ===== 一覧表示 =====
   async function renderList(cat){
     const items = await loadPagesByCategory(cat);
     elList().innerHTML = "";
@@ -275,7 +362,6 @@
 
   function fmt(d){ const y=d.getFullYear(); const m=String(d.getMonth()+1).padStart(2,"0"); const day=String(d.getDate()).padStart(2,"0"); const hh=String(d.getHours()).padStart(2,"0"); const mm=String(d.getMinutes()).padStart(2,"0"); return `${y}/${m}/${day} ${hh}:${mm}`; }
 
-  // ===== 閲覧ビュー（Markdown） =====
   async function renderDetail(id){
     const it = await getPageById(id);
     if (!it) { elDetailInner().innerHTML = `<div class="empty">ページが見つかりませんでした。</div>`; return; }
@@ -294,15 +380,11 @@
         </div>
       </div>
     `;
-    // Markdownを描画
-    const html = renderMarkdown(it.content || "");
-    document.getElementById("mdContent").innerHTML = html;
-
-    // アクション
+    document.getElementById("mdContent").innerHTML = renderMarkdown(it.content || "");
     document.getElementById("btnBackList").onclick = ()=> navigateList(it.category || currentCategory);
     document.getElementById("btnEdit").onclick = ()=> navigateEdit(it.id);
     document.getElementById("btnDel").onclick = async ()=>{
-      if (confirm("このページを削除します。よろしいですか？")){
+      if (confirm("このページを削除しますか？")){
         await removePage(it.id);
         navigateList(it.category || currentCategory);
       }
@@ -312,16 +394,9 @@
       navigator.clipboard.writeText(url).then(()=> alert("リンクをコピーしました"));
     };
   }
+  const escapeHtml = (s) => (s||"").replace(/[&<>"']/g, m=>({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[m]));
 
-  function escapeHtml(s){ return (s||"").replace(/[&<>"']/g, m=>({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[m])); }
-
-  // ===== 編集ビュー（大型） =====
-  // 参照
-  const eTitle = () => document.getElementById("e-title");
-  const eCat = () => document.getElementById("e-cat");
-  const eBody = () => document.getElementById("e-body");
-  const previewBox = () => document.getElementById("e-preview");
-
+  // ===== 編集ビュー =====
   async function renderEdit(id){
     // カテゴリ選択肢
     eCat().innerHTML = "";
@@ -340,23 +415,18 @@
       eCat().value = currentCategory;
       eBody().value = "";
     }
-    // 初回プレビュー
     previewBox().innerHTML = renderMarkdown(eBody().value);
+    await refreshAssetList();
   }
-
-  // 入力→ライブプレビュー
-  function bindLivePreview(){
+  function bindLivePreviewOnce(){
+    if (eBody().dataset.bound) return;
+    eBody().dataset.bound = "1";
     eBody().addEventListener("input", () => {
       previewBox().innerHTML = renderMarkdown(eBody().value);
     });
   }
-
   async function saveEdit(){
-    const payload = {
-      title: eTitle().value.trim(),
-      category: eCat().value,
-      content: eBody().value
-    };
+    const payload = { title: eTitle().value.trim(), category: eCat().value, content: eBody().value };
     if (!payload.title){ alert("タイトルを入力してください"); return; }
     let savedId = editingPageId;
     if (editingPageId) {
@@ -364,25 +434,47 @@
     } else {
       const ref = await createPage(payload);
       savedId = ref.id;
+      // （任意）newフォルダ→savedIdへ移動する処理を入れたい場合はここで
     }
     navigateView(savedId);
   }
 
-  // ===== ルーティング（ハッシュ）=====
-  function navigateList(cat){
-    currentCategory = cat || currentCategory;
-    location.hash = `#/list/${encodeURIComponent(currentCategory)}`;
+  // 画像UIイベント
+  function bindImageUIOnce(){
+    if (dropzone().dataset.bound) return;
+    dropzone().dataset.bound = "1";
+
+    // クリックでファイル選択
+    dropzone().addEventListener("click", ()=> filePicker().click());
+    // 拖入
+    dropzone().addEventListener("dragover", e => { e.preventDefault(); dropzone().classList.add("dragover"); });
+    dropzone().addEventListener("dragleave", ()=> dropzone().classList.remove("dragover"));
+    dropzone().addEventListener("drop", e => {
+      e.preventDefault(); dropzone().classList.remove("dragover");
+      uploadFiles(e.dataTransfer.files);
+    });
+    // ファイル選択
+    filePicker().addEventListener("change", e => uploadFiles(e.target.files));
+    // クリップボード貼り付け
+    window.addEventListener("paste", (e) => {
+      // 編集ビュー時のみ受け付け
+      if (elEditView().style.display !== "block") return;
+      const items = e.clipboardData?.items || [];
+      const files = [];
+      for (const it of items) {
+        if (it.type?.startsWith("image/")) {
+          const f = it.getAsFile();
+          if (f) files.push(f);
+        }
+      }
+      if (files.length) uploadFiles(files);
+    });
   }
-  function navigateView(id){
-    location.hash = `#/view/${id}`;
-  }
-  function navigateEdit(id){
-    if (id) {
-      location.hash = `#/edit/${id}`;
-    } else {
-      location.hash = `#/edit/new`;
-    }
-  }
+
+  // ===== ルーティング =====
+  function navigateList(cat){ currentCategory = cat || currentCategory; location.hash = `#/list/${encodeURIComponent(currentCategory)}`; }
+  function navigateView(id){ location.hash = `#/view/${id}`; }
+  function navigateEdit(id){ location.hash = `#/edit/${id ?? 'new'}`; }
 
   async function routeFromHash(){
     const hash = location.hash || "";
@@ -390,7 +482,6 @@
     const mView = hash.match(/^#\/view\/([^\/]+)$/);
     const mEdit = hash.match(/^#\/edit\/([^\/]+)$/);
 
-    // 表示切替
     elListView().style.display = "none";
     elDetailView().style.display = "none";
     elEditView().style.display = "none";
@@ -402,29 +493,24 @@
     }
     if (mEdit){
       elEditView().style.display = "block";
-      const id = mEdit[1] === "new" ? null : mEdit[1];
-      await renderEdit(id);
-      // 一度だけバインド（重複防止）
-      if (!eBody().dataset.bound) { bindLivePreview(); eBody().dataset.bound = "1"; }
+      await renderEdit(mEdit[1] === "new" ? null : mEdit[1]);
+      bindLivePreviewOnce();
+      bindImageUIOnce();
       return;
     }
 
-    // デフォルト or list
     elListView().style.display = "block";
     let cat = currentCategory;
-    if (mList){
-      try{ cat = decodeURIComponent(mList[1]); }catch{}
-    }
+    if (mList){ try{ cat = decodeURIComponent(mList[1]); }catch{} }
     if (!categories.includes(cat)) categories.push(cat);
     currentCategory = cat;
     renderNav();
     elSelCat().textContent = currentCategory;
     await renderList(currentCategory);
   }
-
   window.addEventListener("hashchange", ()=>{ if(currentUser){ routeFromHash(); } });
 
-  // ===== expose =====
+  // ===== Expose =====
   window._login = login;
   window._logout = logout;
   window._newPage = ()=> navigateEdit(null);
@@ -437,11 +523,11 @@
 <!-- 未ログイン表示 -->
 <div id="gate" class="gate" style="display:none">
   <h1>カテゴリ別ページ管理</h1>
-  <p>Googleアカウントでログインすると、カテゴリごとの<strong>一覧／閲覧（Markdown）／作成・編集（大型ビュー）／削除</strong>が使えます。</p>
+  <p>Googleアカウントでログインすると、カテゴリごとの<strong>一覧／閲覧（Markdown）／作成・編集（大型ビュー）／削除／画像アップロード</strong>が使えます。</p>
   <button class="btn primary" onclick="_login()">Googleでログイン</button>
 </div>
 
-<!-- アプリ本体（ログイン後） -->
+<!-- アプリ本体 -->
 <div id="app" style="display:none">
   <header>
     <div class="topbar">
@@ -455,23 +541,21 @@
   </header>
 
   <div class="container">
-    <!-- 一覧ビュー -->
+    <!-- 一覧 -->
     <section id="listView" style="display:none">
       <div class="toolbar">
         <div class="selectedCat">選択中：<span id="selectedCat"></span></div>
-        <div>
-          <button class="btn primary" onclick="_newPage()">新規ページ</button>
-        </div>
+        <div><button class="btn primary" onclick="_newPage()">新規ページ</button></div>
       </div>
       <div id="list"></div>
     </section>
 
-    <!-- 閲覧ビュー（Markdown）-->
+    <!-- 閲覧（Markdown） -->
     <section id="detailView" style="display:none">
       <div id="detailInner"></div>
     </section>
 
-    <!-- 編集ビュー（大型 2ペイン） -->
+    <!-- 編集（大型2ペイン＋画像） -->
     <section id="editView" class="edit-container" style="display:none">
       <div class="editor-title-row">
         <input id="e-title" type="text" placeholder="タイトル（必須）">
@@ -481,14 +565,21 @@
         <div class="editor-pane">
           <div class="pane-header">
             <div class="title">Markdownエディタ</div>
-            <div class="editor-controls help">**太字** / *斜体* / `コード` / ```lang コードブロック``` / # 見出し</div>
+            <div class="editor-controls">
+              <div class="uploader">
+                <span id="dropzone" class="dropzone">画像をクリック/ドラッグ＆ドロップ/貼り付けで追加</span>
+                <input id="filePicker" type="file" accept="image/*" multiple style="display:none" />
+                <div id="prog" class="progress" style="display:none;"><div id="progbar"></div></div>
+              </div>
+            </div>
           </div>
-          <textarea id="e-body" class="editor-textarea" placeholder="# ここにMarkdownを書きます"></textarea>
+          <textarea id="e-body" class="editor-textarea" placeholder="# ここにMarkdownを書きます（画像は自動で ![](...) を挿入）"></textarea>
+          <div class="asset-list" id="assetList"></div>
         </div>
         <div class="preview-pane">
           <div class="pane-header">
             <div class="title">プレビュー</div>
-            <div class="help">レンダリングはDOMPurifyで無害化しています</div>
+            <div class="help">画像はStorage直リンク。投稿後もすぐ反映されます。</div>
           </div>
           <div id="e-preview" class="preview-content detail content"></div>
         </div>
