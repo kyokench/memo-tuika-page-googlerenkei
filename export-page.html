@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>カテゴリ別ページ管理：エクスポートツール</title>
+<style>
+  :root{--ink:#111827;--muted:#6b7280;--border:#e5e7eb;--bg:#f7f7f9;}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans JP",sans-serif;background:var(--bg);color:var(--ink)}
+  header{background:#111827;color:#fff;padding:14px 16px}
+  main{max-width:900px;margin:24px auto;padding:0 16px}
+  .card{background:#fff;border:1px solid var(--border);border-radius:14px;padding:16px;margin-bottom:16px}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  .btn{padding:10px 14px;border:1px solid #d1d5db;border-radius:10px;background:#fff;cursor:pointer}
+  .btn.primary{background:#111827;color:#fff;border-color:#111827}
+  .muted{color:var(--muted);font-size:13px}
+  .stat{display:inline-block;padding:6px 10px;border:1px solid var(--border);border-radius:999px;background:#fafafa;font-size:13px}
+  code.kv{display:inline-block;background:#f3f4f6;border:1px solid var(--border);padding:2px 6px;border-radius:6px}
+  .log{font-family:ui-monospace,Menlo,Consolas,monospace;background:#0b1020;color:#eaeefb;padding:12px;border-radius:10px;min-height:120px;white-space:pre-wrap}
+</style>
+
+<!-- JSZip & FileSaver（ZIP/保存用） -->
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
+
+<!-- Firebase SDKs -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+  import { getFirestore, collection, getDocs, query, orderBy } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+  import { getStorage, ref as sRef, listAll, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
+
+  // ===== あなたの既存プロジェクト設定（そのまま流用）=====
+  const firebaseConfig = {
+    apiKey: "AIzaSyDuNluIfeulzr_hCr7bHtnCxE1cBneB4kM",
+    authDomain: "masu-memo.firebaseapp.com",
+    projectId: "masu-memo",
+    storageBucket: "masu-memo.appspot.com",
+    messagingSenderId: "1065347011702",
+    appId: "1:1065347011702:web:e417d565f28d000da83b57"
+  };
+
+  // ===== 初期化 =====
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth();
+  const db = getFirestore();
+  const storage = getStorage();
+  const provider = new GoogleAuthProvider();
+
+  // ===== DOM =====
+  const $ = (id)=>document.getElementById(id);
+  const log = (m)=>{ const el=$("log"); el.textContent += (el.textContent? "\n":"") + m; };
+
+  let currentUser = null;
+
+  async function login(){
+    try{ await signInWithPopup(auth, provider); }
+    catch(e){ alert("ログイン失敗: "+e.message); console.error(e); }
+  }
+  async function logout(){
+    try{ await signOut(auth); }
+    catch(e){ alert("ログアウト失敗: "+e.message); console.error(e); }
+  }
+
+  onAuthStateChanged(auth, async (user)=>{
+    currentUser = user || null;
+    $("who").textContent = user ? `ログイン中：${user.displayName||user.email}` : "未ログイン";
+    $("gate").style.display = user ? "none":"block";
+    $("tool").style.display = user ? "block":"none";
+    $("log").textContent = "";
+    if (user){
+      const count = await countPages();
+      $("count").textContent = `${count} 件`;
+      log("準備完了：エクスポート種別を選んでください。");
+    }
+  });
+
+  // ===== Firestore: データ取得 =====
+  function pagesRef(){
+    if (!currentUser) throw new Error("未ログインです");
+    return collection(db, "users", currentUser.uid, "pages");
+  }
+
+  async function fetchAllPages(){
+    // 更新順で安定取得（必要に応じて orderBy を調整）
+    const q = query(pagesRef(), orderBy("updatedAt", "desc"));
+    const snap = await getDocs(q);
+    const res = [];
+    snap.forEach(d=>{
+      const data = d.data();
+      res.push({
+        id: d.id,
+        title: data.title || "",
+        category: data.category || "",
+        content: data.content || "",
+        createdAt: tsToISO(data.createdAt),
+        updatedAt: tsToISO(data.updatedAt),
+      });
+    });
+    return res;
+  }
+
+  async function countPages(){
+    const snap = await getDocs(pagesRef());
+    return snap.size;
+  }
+
+  function tsToISO(ts){
+    try{
+      if (!ts) return null;
+      if (typeof ts.toDate === "function") return ts.toDate().toISOString();
+    }catch(_){}
+    return null;
+  }
+
+  // ===== Export: JSON =====
+  async function exportJSON(){
+    if (!currentUser) return alert("ログインしてください");
+    $("log").textContent = "JSON を作成中…";
+    const data = await fetchAllPages();
+    const blob = new Blob([JSON.stringify({ exportAt: new Date().toISOString(), uid: currentUser.uid, pages: data }, null, 2)], {type:"application/json"});
+    saveAs(blob, `pages_${yyyymmddhhmm()}.json`);
+    log(`完了：${data.length}件を書き出しました。`);
+  }
+
+  // ===== Export: Markdown ZIP =====
+  function sanitizeName(s){ return (s||"untitled").replace(/[\\/:*?"<>|]/g,"_").slice(0,100); }
+  function yyyymmddhhmm(){
+    const d=new Date();
+    const p=n=>String(n).padStart(2,"0");
+    return `${d.getFullYear()}${p(d.getMonth()+1)}${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}`;
+  }
+
+  function mdFrontMatter(meta){
+    return [
+      "---",
+      `id: ${meta.id}`,
+      `title: ${meta.title.replace(/"/g,'\\"')}`,
+      `category: ${meta.category}`,
+      `createdAt: ${meta.createdAt||""}`,
+      `updatedAt: ${meta.updatedAt||""}`,
+      "---"
+    ].join("\n");
+  }
+
+  async function exportMarkdownZip(){
+    if (!currentUser) return alert("ログインしてください");
+    $("log").textContent = "Markdown ZIP を作成中…（文書を整形中）";
+    const pages = await fetchAllPages();
+    const zip = new JSZip();
+
+    // カテゴリ別サブフォルダ
+    const byCat = {};
+    for (const p of pages){
+      const cat = p.category || "_uncategorized";
+      if (!byCat[cat]) byCat[cat] = [];
+      byCat[cat].push(p);
+    }
+
+    Object.entries(byCat).forEach(([cat, items])=>{
+      const folder = zip.folder(sanitizeName(cat));
+      items.forEach((it, idx)=>{
+        const fname = `${String(idx+1).padStart(3,"0")}_${sanitizeName(it.title)}_${it.id}.md`;
+        const fm = mdFrontMatter(it);
+        const body = `# ${it.title || "(無題)"}\n\n${it.content||""}\n`;
+        folder.file(fname, `${fm}\n\n${body}`);
+      });
+    });
+
+    // 付帯ファイル
+    zip.file("manifest.json", JSON.stringify({ count: pages.length, categories: Object.keys(byCat), pages }, null, 2));
+    zip.file("export_meta.json", JSON.stringify({ exportAt: new Date().toISOString(), uid: currentUser.uid }, null, 2));
+
+    const blob = await zip.generateAsync({type:"blob"});
+    saveAs(blob, `pages_markdown_${yyyymmddhhmm()}.zip`);
+    log(`完了：${pages.length}件を ZIP にまとめました。`);
+  }
+
+  // ===== Storage: 画像リンク索引 JSON =====
+  async function exportStorageIndex(){
+    if (!currentUser) return alert("ログインしてください");
+    $("log").textContent = "Storage を走査中…（フォルダ一覧 → アイテム一覧）";
+
+    const base = sRef(storage, `users/${currentUser.uid}/assets`);
+    const out = { exportAt: new Date().toISOString(), uid: currentUser.uid, base: base.fullPath, folders: [] };
+
+    try{
+      // assets 直下のサブフォルダ（= prefixes）
+      const l1 = await listAll(base);
+      for (const prefix of l1.prefixes){
+        const folder = { name: prefix.name, path: prefix.fullPath, files: [] };
+        const l2 = await listAll(prefix);
+        for (const item of l2.items){
+          const url = await getDownloadURL(item);
+          folder.files.push({ name: item.name, path: item.fullPath, url });
+        }
+        out.folders.push(folder);
+      }
+    }catch(e){
+      log("エラー："+ e.message);
+      alert("取得に失敗しました: " + e.message);
+      return;
+    }
+
+    const blob = new Blob([JSON.stringify(out, null, 2)], {type:"application/json"});
+    saveAs(blob, `storage_index_${yyyymmddhhmm()}.json`);
+    log(`完了：${out.folders.length} フォルダを索引化しました（各画像の公開URLを保存）。`);
+  }
+
+  // ===== Expose to UI =====
+  window._login = login;
+  window._logout = logout;
+  window._exportJSON = exportJSON;
+  window._exportMDZIP = exportMarkdownZip;
+  window._exportStorage = exportStorageIndex;
+</script>
+</head>
+<body>
+<header>
+  <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;">
+    <div style="font-weight:800;letter-spacing:.02em;">カテゴリ別ページ管理：エクスポートツール</div>
+    <div class="row">
+      <span id="who" class="muted">未ログイン</span>
+      <button class="btn" onclick="_login()">Googleでログイン</button>
+      <button class="btn" onclick="_logout()">ログアウト</button>
+    </div>
+  </div>
+</header>
+
+<main>
+  <div id="gate" class="card" style="display:none">
+    <div>このページでは、あなたの Firestore（<code class="kv">users/{uid}/pages</code>）の内容をエクスポートできます。</div>
+    <ul>
+      <li>JSON（全件まとめ）</li>
+      <li>Markdown の ZIP（カテゴリ別フォルダ、Front Matter 付き）</li>
+      <li>Storage 画像リンク索引（URL 一覧の JSON）</li>
+    </ul>
+    <p class="muted">※ 画像ファイル自体は ZIP に含めません（リンクのみ）。</p>
+  </div>
+
+  <div id="tool" class="card" style="display:none">
+    <div class="row" style="justify-content:space-between">
+      <div>
+        <div class="muted">ドキュメント数</div>
+        <div class="stat" id="count">—</div>
+      </div>
+      <div class="row">
+        <button class="btn primary" onclick="_exportJSON()">JSON をダウンロード</button>
+        <button class="btn primary" onclick="_exportMDZIP()">Markdown ZIP をダウンロード</button>
+        <button class="btn" onclick="_exportStorage()">Storage 索引(JSON)</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="muted" style="margin-bottom:8px;">ログ</div>
+    <div id="log" class="log"></div>
+  </div>
+
+  <div class="card">
+    <details>
+      <summary><strong>よくある補足</strong></summary>
+      <ul>
+        <li><strong>タイトルに使えない文字</strong>（<code>\ / : * ? " &lt; &gt; |</code>）はファイル名で <code>_</code> に置換します。</li>
+        <li><strong>タイムスタンプ</strong>は ISO8601 に変換して出力します（存在しない場合は空）。</li>
+        <li><strong>大量データ</strong>の場合、処理に時間がかかります。進捗は上のログを確認してください。</li>
+      </ul>
+    </details>
+  </div>
+</main>
+</body>
+</html>
