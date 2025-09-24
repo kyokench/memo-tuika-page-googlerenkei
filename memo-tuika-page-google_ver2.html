@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1.0" />
+<title>カテゴリ別ページ管理（Markdown＋大型編集＋画像アップロード）</title>
+
+<style>
+  :root { --gap: 14px; --border:#e5e7eb; --bg:#f7f7f9; --ink:#111827; }
+  * { box-sizing: border-box; }
+  body { font-family: system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans JP", sans-serif; margin:0; color:#222; background:var(--bg); }
+  header { background:#111827; color:#fff; }
+  .topbar { display:flex; align-items:center; justify-content:space-between; gap:20px; padding:12px 16px; }
+  .brand { font-weight:700; letter-spacing:.02em; }
+  .auth { display:flex; align-items:center; gap:10px; }
+  .auth button { background:#374151; color:#fff; border:none; padding:8px 12px; border-radius:8px; cursor:pointer; }
+  .auth button:hover { background:#4b5563; }
+  .nav { display:flex; gap:10px; padding:8px 16px 12px; flex-wrap:wrap; border-top:1px solid #1f2937; }
+  .nav .cat { background:#1f2937; color:#e5e7eb; padding:6px 10px; border-radius:999px; font-size:14px; cursor:pointer; border:1px solid transparent; }
+  .nav .cat.active { background:#f9fafb; color:#111827; border-color:#111827; }
+  .nav .add-cat { background:transparent; color:#93c5fd; border:1px dashed #374151; }
+
+  .container { max-width:1200px; margin: 20px auto; padding: 0 16px; }
+  .toolbar { display:flex; justify-content:space-between; align-items:center; margin-bottom: var(--gap); gap:var(--gap); }
+  .toolbar .selectedCat { font-weight:600; }
+  .btn { padding:8px 12px; border-radius:8px; border:1px solid #d1d5db; background:#fff; cursor:pointer; }
+  .btn.primary { background:#111827; color:#fff; border-color:#111827; }
+  .btn.warn { background:#fee2e2; color:#991b1b; border-color:#fecaca; }
+  .btn.ghost { background:transparent; }
+
+  .grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: var(--gap); }
+  .card { background:#fff; border:1px solid var(--border); border-radius:14px; padding:14px; display:flex; flex-direction:column; gap:10px; box-shadow:0 1px 2px rgba(0,0,0,0.04); }
+  .card h3 { margin:0; font-size:16px; line-height:1.4; }
+  .meta { font-size:12px; color:#6b7280; }
+  .preview { white-space:pre-wrap; font-size:13px; color:#374151; cursor:pointer; }
+  .card .actions { display:flex; gap:8px; margin-top:auto; }
+  .empty { padding:24px; text-align:center; color:#6b7280; background:#fff; border:1px dashed #d1d5db; border-radius:12px; }
+  .gate { max-width:640px; margin:80px auto; text-align:center; background:#fff; padding:32px; border-radius:16px; border:1px solid #e5e7eb; }
+
+  /* 閲覧（Markdown） */
+  .detail { background:#fff; border:1px solid var(--border); border-radius:16px; padding:28px; box-shadow:0 1px 2px rgba(0,0,0,0.04); }
+  .detail .title { font-size:26px; font-weight:800; margin:0 0 6px; color:var(--ink); }
+  .detail .submeta { color:#6b7280; font-size:13px; margin-bottom:16px; }
+  .detail .content { font-size:16px; line-height:1.9; color:#1f2937; }
+  .detail .content img { max-width:100%; height:auto; }
+  .detail .content pre { padding:12px; border:1px solid var(--border); border-radius:10px; overflow:auto; background:#0b1020; color:#eaeefb; }
+  .detail .content code { background:#f3f4f6; padding:2px 6px; border-radius:6px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; }
+  .detail .actions { display:flex; gap:10px; margin-top:16px; flex-wrap: wrap; }
+
+  /* 編集（大型2ペイン） */
+  .edit-wrapper { display:grid; grid-template-columns: 1fr 1fr; gap:16px; min-height: calc(100vh - 180px); }
+  .editor-pane, .preview-pane { background:#fff; border:1px solid var(--border); border-radius:14px; padding:12px; display:flex; flex-direction:column; }
+  .pane-header { display:flex; justify-content:space-between; align-items:center; padding:6px 6px 10px; border-bottom:1px solid var(--border); margin-bottom:8px; }
+  .pane-header .title { font-weight:700; }
+  .editor-controls { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .editor-title-row { display:flex; gap:8px; padding:0 12px 12px; }
+  .editor-title-row input, .editor-title-row select { width:100%; padding:10px; border:1px solid #d1d5db; border-radius:8px; background:#fafafa; }
+  .editor-textarea { width:100%; height:100%; min-height:420px; border:none; outline:none; resize:vertical; font: 14px/1.6 ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; }
+  .preview-content { padding:0 6px 6px; overflow:auto; }
+  .edit-toolbar { display:flex; gap:8px; justify-content:flex-end; margin:16px 0; flex-wrap: wrap; }
+  .edit-container { max-width:1200px; margin: 12px auto 28px; padding: 0 16px; }
+
+  /* 画像アップロードUI */
+  .uploader { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .dropzone {
+    border:2px dashed #c7ccd5; border-radius:10px; padding:10px 12px; background:#fafafa;
+    font-size:13px; color:#6b7280; cursor:pointer;
+  }
+  .dropzone.dragover { background:#eef6ff; border-color:#93c5fd; color:#111827; }
+  .progress { height:8px; border-radius:6px; background:#e5e7eb; overflow:hidden; width:200px; }
+  .progress > div { height:8px; background:#111827; width:0%; transition: width .2s ease; }
+  .asset-list { display:flex; gap:10px; flex-wrap:wrap; margin-top:6px; }
+  .asset { border:1px solid #e5e7eb; border-radius:10px; padding:6px; background:#fff; display:flex; align-items:center; gap:8px; }
+  .asset img { width:48px; height:48px; object-fit:cover; border-radius:6px; }
+  .asset .mini-btn { font-size:12px; padding:4px 6px; border-radius:6px; border:1px solid #d1d5db; background:#fff; cursor:pointer; }
+  @media (max-width: 960px) { .edit-wrapper { grid-template-columns: 1fr; } }
+</style>
+
+<!-- Markdown / Sanitize / Highlight -->
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.6/dist/purify.min.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/styles/github-dark.min.css">
+<script src="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/lib/common.min.js"></script>
+<script>
+  marked.setOptions({
+    highlight: (code, lang) => {
+      try { if (lang && hljs.getLanguage(lang)) return hljs.highlight(code, { language: lang }).value; }
+      catch {}
+      return hljs.highlightAuto(code).value;
+    },
+    breaks: true
+  });
+  const renderMarkdown = (md) => DOMPurify.sanitize(marked.parse(md || ""), { USE_PROFILES: { html: true } });
+</script>
+
+<!-- Firebase SDKs -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+  import {
+    getFirestore, collection, addDoc, getDocs, query, where,
+    updateDoc, deleteDoc, doc, serverTimestamp, getDoc
+  } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+  import {
+    getStorage, ref as sRef, uploadBytesResumable, getDownloadURL, deleteObject, listAll
+  } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
+
+  // ===== 設定 =====
+  const firebaseConfig = {
+    apiKey: "AIzaSyDuNluIfeulzr_hCr7bHtnCxE1cBneB4kM",
+    authDomain: "masu-memo.firebaseapp.com",
+    projectId: "masu-memo",
+    storageBucket: "masu-memo.appspot.com",
+    messagingSenderId: "1065347011702",
+    appId: "1:1065347011702:web:e417d565f28d000da83b57"
+  };
+  const DEFAULT_CATEGORIES = ["その他", "ブログ", "技術", "プロンプト", "トレード"];
+
+  // ===== 初期化 =====
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth();
+  const db = getFirestore();
+  const storage = getStorage();
+  const provider = new GoogleAuthProvider();
+
+  let currentUser = null;
+  let categories = [...DEFAULT_CATEGORIES];
+  let currentCategory = categories[0];
+  let editingPageId = null;
+
+  // ===== DOM参照 =====
+  const elGate = () => document.getElementById("gate");
+  const elApp = () => document.getElementById("app");
+  const elUser = () => document.getElementById("user");
+  const elNav = () => document.getElementById("nav");
+  const elListView = () => document.getElementById("listView");
+  const elDetailView = () => document.getElementById("detailView");
+  const elEditView = () => document.getElementById("editView");
+  const elList = () => document.getElementById("list");
+  const elSelCat = () => document.getElementById("selectedCat");
+  const elDetailInner = () => document.getElementById("detailInner");
+
+  // 編集用
+  const eTitle = () => document.getElementById("e-title");
+  const eCat = () => document.getElementById("e-cat");
+  const eBody = () => document.getElementById("e-body");
+  const previewBox = () => document.getElementById("e-preview");
+  const filePicker = () => document.getElementById("filePicker");
+  const dropzone = () => document.getElementById("dropzone");
+  const prog = () => document.getElementById("prog");
+  const progBar = () => document.getElementById("progbar");
+  const assetList = () => document.getElementById("assetList");
+
+  // ===== Auth =====
+  async function login(){ try{ await signInWithPopup(auth, provider);}catch(e){ alert("ログイン失敗: "+e.message); console.error(e); } }
+  async function logout(){ try{ await signOut(auth);}catch(e){ alert("ログアウト失敗: "+e.message); console.error(e); } }
+
+  onAuthStateChanged(auth, async (user) => {
+    if (user) {
+      currentUser = user;
+      elGate().style.display = "none";
+      elApp().style.display = "block";
+      elUser().textContent = `こんにちは、${user.displayName || "ユーザー"} さん`;
+      renderNav();
+      routeFromHash();
+    } else {
+      currentUser = null;
+      elApp().style.display = "none";
+      elGate().style.display = "block";
+    }
+  });
+
+  // ===== Firestore =====
+  const pagesColRef = () => collection(db, "users", currentUser.uid, "pages");
+
+  async function loadPagesByCategory(cat) {
+    const snap = await getDocs(query(pagesColRef(), where("category", "==", cat)));
+    const rows = [];
+    snap.forEach((d)=> rows.push({ id:d.id, ...d.data() }));
+    rows.sort((a,b)=>{
+      const ta = (a.updatedAt?.toMillis?.() || a.createdAt?.toMillis?.() || 0);
+      const tb = (b.updatedAt?.toMillis?.() || b.createdAt?.toMillis?.() || 0);
+      return tb - ta;
+    });
+    return rows;
+  }
+  async function getPageById(id){
+    const d = await getDoc(doc(db, "users", currentUser.uid, "pages", id));
+    return d.exists() ? { id: d.id, ...d.data() } : null;
+  }
+  async function createPage({ title, category, content }) {
+    return await addDoc(pagesColRef(), { title, category, content, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+  }
+  async function updatePage(id, payload) {
+    await updateDoc(doc(db,"users",currentUser.uid,"pages",id), { ...payload, updatedAt: serverTimestamp() });
+  }
+  async function removePage(id) {
+    await deleteDoc(doc(db,"users",currentUser.uid,"pages",id));
+    // 画像も（任意）一括削除したいときは listAll → deleteObject で削除可能
+  }
+
+  // ===== Storage（画像）=====
+  const pathFor = (pageIdOrNew) => `users/${currentUser.uid}/assets/${pageIdOrNew}`;
+  function insertAtCursor(textarea, text){
+    const start = textarea.selectionStart || 0, end = textarea.selectionEnd || 0;
+    const before = textarea.value.substring(0, start);
+    const after  = textarea.value.substring(end);
+    textarea.value = before + text + after;
+    const pos = start + text.length;
+    textarea.selectionStart = textarea.selectionEnd = pos;
+    textarea.focus();
+    previewBox().innerHTML = renderMarkdown(eBody().value);
+  }
+
+  async function uploadFiles(files){
+    if (!files || !files.length) return;
+    if (!currentUser) return alert("ログインしてください");
+    const pageKey = editingPageId || "new"; // 新規作成中も仮置き
+    prog.style.display = "block";
+    for (const file of files){
+      if (!file.type.startsWith("image/")) { alert("画像ファイルのみアップロードできます"); continue; }
+      const safeName = `${Date.now()}_${file.name.replace(/[^\w.\-]/g,"_")}`;
+      const ref = sRef(storage, `${pathFor(pageKey)}/${safeName}`);
+      const task = uploadBytesResumable(ref, file, { contentType: file.type });
+      await new Promise((resolve, reject)=>{
+        task.on('state_changed', (snap)=>{
+          const pct = Math.round((snap.bytesTransferred / snap.totalBytes) * 100);
+          progBar.style.width = pct + "%";
+        }, reject, async ()=>{
+          const url = await getDownloadURL(task.snapshot.ref);
+          // Markdown 文字列を差し込み（alt は元ファイル名）
+          insertAtCursor(eBody(), `\n\n![${file.name}](${url})\n\n`);
+          resolve();
+        });
+      });
+    }
+    prog.style.display = "none";
+    // 一覧更新
+    await refreshAssetList();
+  }
+
+  async function refreshAssetList(){
+    // 現在の編集対象のフォルダを列挙
+    const key = editingPageId || "new";
+    const baseRef = sRef(storage, pathFor(key));
+    assetList().innerHTML = "";
+    try{
+      const res = await listAll(baseRef);
+      if (!res.items.length){ assetList().innerHTML = `<span class="help">（アップロード済み画像はまだありません）</span>`; return; }
+      for (const itemRef of res.items){
+        const url = await getDownloadURL(itemRef);
+        const div = document.createElement("div");
+        div.className = "asset";
+        div.innerHTML = `
+          <img src="${url}" alt="">
+          <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
+            <button class="mini-btn" data-act="ins-md">挿入</button>
+            <a class="mini-btn" href="${url}" target="_blank" rel="noopener">開く</a>
+            <button class="mini-btn" data-act="del">削除</button>
+          </div>
+        `;
+        div.querySelector('[data-act="ins-md"]').onclick = () => insertAtCursor(eBody(), `\n\n![](${url})\n\n`);
+        div.querySelector('[data-act="del"]').onclick = async () => {
+          if (confirm("この画像をStorageから削除しますか？")){
+            await deleteObject(itemRef);
+            await refreshAssetList();
+          }
+        };
+        assetList().appendChild(div);
+      }
+    }catch(e){
+      assetList().innerHTML = `<span class="help">画像リストの取得に失敗しました：${e.message}</span>`;
+    }
+  }
+
+  // 保存時：new 配下の画像を実IDへ移動したい場合（任意）
+  // ここでは簡易化のため移動せず、そのまま利用します。
+  // 運用で整理したい場合は、保存後に listAll → reupload → delete で移行してください。
+
+  // ===== ナビ／一覧／閲覧は前回同様 =====
+  function renderNav() {
+    elNav().innerHTML = "";
+    categories.forEach(cat => {
+      const b = document.createElement("button");
+      b.className = "cat" + (cat === currentCategory ? " active" : "");
+      b.textContent = cat;
+      b.onclick = () => {
+        currentCategory = cat;
+        renderNav();
+        navigateList(cat);
+      };
+
+      // ★ 右クリックで削除（デフォルトのコンテキストメニュー無効化）
+      b.addEventListener("contextmenu", (e) => {
+        e.preventDefault();
+        if (DEFAULT_CATEGORIES.includes(cat)) {
+          alert("このカテゴリは削除できません");
+          return;
+        }
+        if (confirm(`カテゴリ「${cat}」を削除しますか？`)) {
+          categories = categories.filter(c => c !== cat);
+          // 表示中カテゴリだった場合は先頭に戻す
+          if (currentCategory === cat) {
+            currentCategory = categories[0];
+          }
+          renderNav();
+          navigateList(currentCategory);
+        }
+      });
+
+      elNav().appendChild(b);
+    });
+
+    const add = document.createElement("button");
+    add.className = "cat add-cat";
+    add.textContent = "＋カテゴリ追加";
+    add.onclick = () => {
+      const name = prompt("カテゴリ名");
+      if (name && !categories.includes(name)) {
+        categories.push(name);
+        currentCategory = name;
+        renderNav();
+        navigateList(name);
+      }
+    };
+    elNav().appendChild(add);
+  }
+
+  async function renderList(cat){
+    const items = await loadPagesByCategory(cat);
+    elList().innerHTML = "";
+    if (!items.length) {
+      elList().innerHTML = `<div class="empty">このカテゴリのページはまだありません。「新規ページ」を押して作成してください。</div>`;
+      return;
+    }
+    const grid = document.createElement("div");
+    grid.className = "grid";
+    items.forEach(it=>{
+      const card = document.createElement("div");
+      card.className = "card";
+
+      const h3 = document.createElement("h3");
+      h3.textContent = it.title || "(無題)";
+      h3.style.cursor = "pointer";
+      h3.onclick = ()=> navigateView(it.id);
+
+      const meta = document.createElement("div");
+      meta.className = "meta";
+      const updated = it.updatedAt?.toDate?.() || it.createdAt?.toDate?.();
+      meta.textContent = `${it.category} ｜ 更新: ${updated ? fmt(updated) : "—"}`;
+
+      const preview = document.createElement("div");
+      preview.className = "preview";
+      preview.textContent = (it.content || "").slice(0, 140) + ((it.content || "").length > 140 ? "…" : "");
+      preview.onclick = ()=> navigateView(it.id);
+
+      const actions = document.createElement("div");
+      actions.className = "actions";
+
+      const view = document.createElement("button");
+      view.className = "btn";
+      view.textContent = "開く";
+      view.onclick = ()=> navigateView(it.id);
+
+      const edit = document.createElement("button");
+      edit.className = "btn";
+      edit.textContent = "編集";
+      edit.onclick = () => navigateEdit(it.id);
+
+      const del = document.createElement("button");
+      del.className = "btn warn";
+      del.textContent = "削除";
+      del.onclick = async () => {
+        if (confirm("このページを削除します。よろしいですか？")) {
+          await removePage(it.id);
+          await renderList(cat);
+        }
+      };
+
+      actions.append(view, edit, del);
+      card.append(h3, meta, preview, actions);
+      grid.appendChild(card);
+    });
+    elList().appendChild(grid);
+  }
+
+  function fmt(d){ const y=d.getFullYear(); const m=String(d.getMonth()+1).padStart(2,"0"); const day=String(d.getDate()).padStart(2,"0"); const hh=String(d.getHours()).padStart(2,"0"); const mm=String(d.getMinutes()).padStart(2,"0"); return `${y}/${m}/${day} ${hh}:${mm}`; }
+
+  async function renderDetail(id){
+    const it = await getPageById(id);
+    if (!it) { elDetailInner().innerHTML = `<div class="empty">ページが見つかりませんでした。</div>`; return; }
+    const updated = it.updatedAt?.toDate?.() || it.createdAt?.toDate?.();
+
+    elDetailInner().innerHTML = `
+      <div class="detail">
+        <h1 class="title">${escapeHtml(it.title || "(無題)")}</h1>
+        <div class="submeta">${escapeHtml(it.category || "-")} ｜ 更新: ${updated ? fmt(updated) : "—"}</div>
+        <div class="content" id="mdContent"></div>
+        <div class="actions">
+          <button class="btn" id="btnBackList">一覧に戻る</button>
+          <button class="btn primary" id="btnEdit">編集</button>
+          <button class="btn warn" id="btnDel">削除</button>
+          <button class="btn ghost" id="btnCopyLink">リンクをコピー</button>
+        </div>
+      </div>
+    `;
+    document.getElementById("mdContent").innerHTML = renderMarkdown(it.content || "");
+    document.getElementById("btnBackList").onclick = ()=> navigateList(it.category || currentCategory);
+    document.getElementById("btnEdit").onclick = ()=> navigateEdit(it.id);
+    document.getElementById("btnDel").onclick = async ()=>{
+      if (confirm("このページを削除しますか？")){
+        await removePage(it.id);
+        navigateList(it.category || currentCategory);
+      }
+    };
+    document.getElementById("btnCopyLink").onclick = ()=>{
+      const url = `${location.origin}${location.pathname}#/view/${it.id}`;
+      navigator.clipboard.writeText(url).then(()=> alert("リンクをコピーしました"));
+    };
+  }
+  const escapeHtml = (s) => (s||"").replace(/[&<>"']/g, m=>({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[m]));
+
+  // ===== 編集ビュー =====
+  async function renderEdit(id){
+    // カテゴリ選択肢
+    eCat().innerHTML = "";
+    categories.forEach(c=>{ const opt=document.createElement("option"); opt.value=c; opt.textContent=c; eCat().appendChild(opt); });
+
+    if (id) {
+      const it = await getPageById(id);
+      if (!it){ alert("ページが見つかりません"); navigateList(currentCategory); return; }
+      editingPageId = it.id;
+      eTitle().value = it.title || "";
+      eCat().value = it.category || currentCategory;
+      eBody().value = it.content || "";
+    } else {
+      editingPageId = null;
+      eTitle().value = "";
+      eCat().value = currentCategory;
+      eBody().value = "";
+    }
+    previewBox().innerHTML = renderMarkdown(eBody().value);
+    await refreshAssetList();
+  }
+  function bindLivePreviewOnce(){
+    if (eBody().dataset.bound) return;
+    eBody().dataset.bound = "1";
+    eBody().addEventListener("input", () => {
+      previewBox().innerHTML = renderMarkdown(eBody().value);
+    });
+  }
+  async function saveEdit(){
+    const payload = { title: eTitle().value.trim(), category: eCat().value, content: eBody().value };
+    if (!payload.title){ alert("タイトルを入力してください"); return; }
+    let savedId = editingPageId;
+    if (editingPageId) {
+      await updatePage(editingPageId, payload);
+    } else {
+      const ref = await createPage(payload);
+      savedId = ref.id;
+      // （任意）newフォルダ→savedIdへ移動する処理を入れたい場合はここで
+    }
+    navigateView(savedId);
+  }
+
+  // 画像UIイベント
+  function bindImageUIOnce(){
+    if (dropzone().dataset.bound) return;
+    dropzone().dataset.bound = "1";
+
+    // クリックでファイル選択
+    dropzone().addEventListener("click", ()=> filePicker().click());
+    // 拖入
+    dropzone().addEventListener("dragover", e => { e.preventDefault(); dropzone().classList.add("dragover"); });
+    dropzone().addEventListener("dragleave", ()=> dropzone().classList.remove("dragover"));
+    dropzone().addEventListener("drop", e => {
+      e.preventDefault(); dropzone().classList.remove("dragover");
+      uploadFiles(e.dataTransfer.files);
+    });
+    // ファイル選択
+    filePicker().addEventListener("change", e => uploadFiles(e.target.files));
+    // クリップボード貼り付け
+    window.addEventListener("paste", (e) => {
+      // 編集ビュー時のみ受け付け
+      if (elEditView().style.display !== "block") return;
+      const items = e.clipboardData?.items || [];
+      const files = [];
+      for (const it of items) {
+        if (it.type?.startsWith("image/")) {
+          const f = it.getAsFile();
+          if (f) files.push(f);
+        }
+      }
+      if (files.length) uploadFiles(files);
+    });
+  }
+
+  // ===== ルーティング =====
+  function navigateList(cat){ currentCategory = cat || currentCategory; location.hash = `#/list/${encodeURIComponent(currentCategory)}`; }
+  function navigateView(id){ location.hash = `#/view/${id}`; }
+  function navigateEdit(id){ location.hash = `#/edit/${id ?? 'new'}`; }
+
+  async function routeFromHash(){
+    const hash = location.hash || "";
+    const mList = hash.match(/^#\/list\/(.+)$/);
+    const mView = hash.match(/^#\/view\/([^\/]+)$/);
+    const mEdit = hash.match(/^#\/edit\/([^\/]+)$/);
+
+    elListView().style.display = "none";
+    elDetailView().style.display = "none";
+    elEditView().style.display = "none";
+
+    if (mView){
+      elDetailView().style.display = "block";
+      await renderDetail(mView[1]);
+      return;
+    }
+    if (mEdit){
+      elEditView().style.display = "block";
+      await renderEdit(mEdit[1] === "new" ? null : mEdit[1]);
+      bindLivePreviewOnce();
+      bindImageUIOnce();
+      return;
+    }
+
+    elListView().style.display = "block";
+    let cat = currentCategory;
+    if (mList){ try{ cat = decodeURIComponent(mList[1]); }catch{} }
+    if (!categories.includes(cat)) categories.push(cat);
+    currentCategory = cat;
+    renderNav();
+    elSelCat().textContent = currentCategory;
+    await renderList(currentCategory);
+  }
+  window.addEventListener("hashchange", ()=>{ if(currentUser){ routeFromHash(); } });
+
+  // ===== Expose =====
+  window._login = login;
+  window._logout = logout;
+  window._newPage = ()=> navigateEdit(null);
+  window._saveEdit = saveEdit;
+  window._backToView = ()=> history.length ? history.back() : navigateList(currentCategory);
+</script>
+</head>
+<body>
+
+<!-- 未ログイン表示 -->
+<div id="gate" class="gate" style="display:none">
+  <h1>カテゴリ別ページ管理</h1>
+  <p>Googleアカウントでログインすると、カテゴリごとの<strong>一覧／閲覧（Markdown）／作成・編集（大型ビュー）／削除／画像アップロード</strong>が使えます。</p>
+  <button class="btn primary" onclick="_login()">Googleでログイン</button>
+</div>
+
+<!-- アプリ本体 -->
+<div id="app" style="display:none">
+  <header>
+    <div class="topbar">
+      <div class="brand">カテゴリ別ページ管理</div>
+      <div class="auth">
+        <div id="user"></div>
+        <button onclick="_logout()">ログアウト</button>
+      </div>
+    </div>
+    <nav id="nav" class="nav"></nav>
+  </header>
+
+  <div class="container">
+    <!-- 一覧 -->
+    <section id="listView" style="display:none">
+      <div class="toolbar">
+        <div class="selectedCat">選択中：<span id="selectedCat"></span></div>
+        <div><button class="btn primary" onclick="_newPage()">新規ページ</button></div>
+      </div>
+      <div id="list"></div>
+    </section>
+
+    <!-- 閲覧（Markdown） -->
+    <section id="detailView" style="display:none">
+      <div id="detailInner"></div>
+    </section>
+
+    <!-- 編集（大型2ペイン＋画像） -->
+    <section id="editView" class="edit-container" style="display:none">
+      <div class="editor-title-row">
+        <input id="e-title" type="text" placeholder="タイトル（必須）">
+        <select id="e-cat" title="カテゴリ"></select>
+      </div>
+      <div class="edit-wrapper">
+        <div class="editor-pane">
+          <div class="pane-header">
+            <div class="title">Markdownエディタ</div>
+            <div class="editor-controls">
+              <div class="uploader">
+                <span id="dropzone" class="dropzone">画像をクリック/ドラッグ＆ドロップ/貼り付けで追加</span>
+                <input id="filePicker" type="file" accept="image/*" multiple style="display:none" />
+                <div id="prog" class="progress" style="display:none;"><div id="progbar"></div></div>
+              </div>
+            </div>
+          </div>
+          <textarea id="e-body" class="editor-textarea" placeholder="# ここにMarkdownを書きます（画像は自動で ![](...) を挿入）"></textarea>
+          <div class="asset-list" id="assetList"></div>
+        </div>
+        <div class="preview-pane">
+          <div class="pane-header">
+            <div class="title">プレビュー</div>
+            <div class="help">画像はStorage直リンク。投稿後もすぐ反映されます。</div>
+          </div>
+          <div id="e-preview" class="preview-content detail content"></div>
+        </div>
+      </div>
+      <div class="edit-toolbar">
+        <button class="btn" onclick="_backToView()">戻る</button>
+        <button class="btn primary" onclick="_saveEdit()">保存</button>
+      </div>
+    </section>
+  </div>
+</div>
+
+</body>
+</html>
