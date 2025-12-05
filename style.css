@@ -1,0 +1,83 @@
+<style>
+body { font-family: "Segoe UI", sans-serif; margin:0; background:#f2f4f7; }
+header { background:#2979ff; color:#fff; padding:16px; font-size:20px; }
+
+.container {
+  padding:20px; max-width:900px; margin:auto;
+}
+
+/* -----------------
+   メモカード（改善）
+----------------- */
+.memo-card {
+  background:#fff;
+  padding:16px;
+  border-radius:10px;
+  margin-bottom:14px;
+  box-shadow:0 2px 5px rgba(0,0,0,.08);
+  border-left:5px solid #2979ff;
+}
+.memo-title {
+  font-size:17px; font-weight:600; color:#222;
+}
+.memo-body {
+  font-size:14px; margin:10px 0; color:#444; white-space:pre-wrap;
+}
+.memo-date {
+  font-size:12px; color:#666; margin-bottom:10px;
+}
+
+/* 編集・削除ボタン */
+.card-actions {
+  display:flex; gap:10px;
+}
+.memo-btn {
+  padding:6px 12px;
+  border:none;
+  border-radius:6px;
+  cursor:pointer;
+  font-size:13px;
+}
+.edit { background:#4caf50; color:#fff; }
+.del  { background:#ff4d4d; color:#fff; }
+
+/* -----------------
+   入力フォーム（改善）
+----------------- */
+.form-box {
+  background:#fff;
+  padding:20px;
+  border-radius:10px;
+  box-shadow:0 2px 6px rgba(0,0,0,.08);
+  margin-top:30px;
+}
+.form-box h3 {
+  margin-top:0;
+  color:#222;
+  border-left:4px solid #2979ff;
+  padding-left:8px;
+}
+
+input, textarea {
+  width:100%;
+  padding:10px;
+  border-radius:6px;
+  border:1px solid #ccc;
+  font-size:15px;
+  margin-bottom:14px;
+}
+
+button.save {
+  width:100%;
+  padding:12px;
+  background:#2979ff;
+  border:none;
+  color:#fff;
+  border-radius:8px;
+  font-size:16px;
+  cursor:pointer;
+}
+button.save:hover {
+  opacity:0.85;
+}
+</style>
