@@ -15,13 +15,15 @@ header {
 }
 
 .container {
-  padding: 18px;
-  max-width: 900px;
-  margin: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 32px;
+  padding:18px;
+  width:100%;      /* 画面幅いっぱいに広げる */
+  max-width:none;  /* 幅制限を解除 */
+  margin:0;        /* 中央寄せを解除 */
+  display:flex;
+  flex-direction:column;
+  gap:32px;
 }
+
 
 /* ==========================================
    カレンダー（旧デザイン再現）
