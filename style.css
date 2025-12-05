@@ -177,12 +177,66 @@ header {
 /* ==========================================
    メモカード（旧Google Drive版に忠実に寄せる）
 ========================================== */
+.memo-layout {
+  display: flex;
+  height: calc(100vh - 60px);
+  background: #f4f5f7;
+}
+
+/* -------- 左：フォルダ一覧 ---------- */
+.folder-panel {
+  width: 240px;
+  background: #fff;
+  border-right: 1px solid #ddd;
+  padding: 16px;
+  overflow-y: auto;
+}
+
+.folder-title {
+  font-weight: 700;
+  margin-bottom: 10px;
+  font-size: 16px;
+}
+
+.folder-item {
+  padding: 8px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  margin-bottom: 4px;
+  font-size: 14px;
+}
+
+.folder-item:hover {
+  background: #e8f0ff;
+}
+
+.folder-item.active {
+  background: #2979ff;
+  color: #fff;
+}
+
+/* フォルダ追加欄 */
+.folder-add-box input {
+  width: 100%;
+  padding: 8px;
+  margin-top: 8px;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+}
+
+/* -------- 右：メモ一覧＋編集 ---------- */
+.memo-panel {
+  flex: 1;
+  padding: 20px;
+  overflow-y: auto;
+}
+
 .memo-card {
-  background: #fafafa;
-  border-radius: 8px;
+  background: #fff;
   padding: 14px;
+  border-radius: 8px;
   margin-bottom: 12px;
-  box-shadow: 0 1px 4px rgba(0,0,0,.06);
+  box-shadow: 0 1px 4px rgba(0,0,0,.08);
 }
 
 .memo-title {
@@ -200,80 +254,40 @@ header {
 .memo-date {
   font-size: 11px;
   color: #777;
+  margin-bottom: 8px;
 }
 
-/* メモ編集ボタン */
-.edit-memo-btn {
-  background: #4caf50;
-  color: #fff;
-  border: none;
+.edit-btn, .delete-btn {
   padding: 6px 10px;
+  border: none;
   border-radius: 6px;
-  font-size: 12px;
   cursor: pointer;
-  margin-right: 2px;
-  margin-top:10px;
-}
-
-/* メモ削除ボタン */
-.delete-memo-btn {
-  background: #ff4d4d;
-  color: #fff;
-  border: none;
-  padding: 6px 10px;
-  border-radius: 2px;
   font-size: 12px;
-  cursor: pointer;
-  margin-top:10px;
 }
 
+.edit-btn { background: #4caf50; color: #fff; }
+.delete-btn { background: #ff4d4d; color: #fff; margin-left: 8px; }
 
-/* 編集ボタン（Firebase版との統合） */
-.memo-btn.edit {
-  background: #4caf50;
-  color: #fff;
-}
-
-/* ==========================================
-   メモ追加フォーム（旧デザイン）
-========================================== */
-.memo-form,
 .form-box {
-  background: #fff;
-  padding: 18px;
-  border-radius: 10px;
-  box-shadow: 0 2px 6px rgba(0,0,0,.08);
+  background:#fff;
+  padding:16px;
+  border-radius:10px;
+  box-shadow:0 2px 6px rgba(0,0,0,.08);
+  margin-top:20px;
 }
-
-.memo-form input,
-.memo-form textarea,
-.form-box input,
-.form-box textarea {
-  width: 100%;
-  padding: 10px;
-  margin: 6px 0 14px;
-  border-radius: 6px;
-  border: 1px solid #ccc;
-  font-size: 14px;
+.form-box input, .form-box textarea {
+  width:100%;
+  padding:10px;
+  margin:6px 0 14px;
+  border-radius:6px;
+  border:1px solid #ccc;
 }
-
-.memo-form button,
-button.save {
-  width: 100%;
-  padding: 12px;
-  background: #2979ff;
-  border: none;
-  color: #fff;
-  border-radius: 6px;
-  font-size: 15px;
-  cursor: pointer;
-}
-
-.memo-form button:hover,
-button.save:hover {
-  opacity: .85;
-}
-
-memo-page-title{
-  margin:0 10px;
+.form-box button {
+  width:100%;
+  padding:12px;
+  background:#2979ff;
+  border:none;
+  color:#fff;
+  border-radius:6px;
+  cursor:pointer;
 }
