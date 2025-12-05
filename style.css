@@ -1,1 +1,231 @@
+/* ==========================================
+   ベース
+========================================== */
+body {
+  font-family: "Segoe UI", sans-serif;
+  margin: 0;
+  background: #f2f4f7;
+}
 
+body, html {
+  width: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+.wrapper, .main, .content, .page, .layout {
+  width: 100% !important;
+  max-width: none !important;
+  margin: 0 !important;
+  padding: 0;
+}
+
+
+header {
+  background: #2979ff;
+  color: #fff;
+  padding: 16px;
+  font-size: 20px;
+}
+
+.container {
+  padding:18px;
+  width:100%;      /* 画面幅いっぱいに広げる */
+  max-width:none;  /* 幅制限を解除 */
+  margin:0;        /* 中央寄せを解除 */
+  display:flex;
+  flex-direction:column;
+  gap:32px;
+}
+
+/* ==========================================
+   カレンダー（旧デザイン再現）
+========================================== */
+.calendar {
+  display: grid;
+  gap: 12px;
+}
+@media (min-width: 900px) {
+  .calendar {
+    grid-template-columns: repeat(7, 1fr);
+  }
+}
+
+.day {
+  background: #fff;
+  padding: 12px;
+  border-radius: 8px;
+  box-shadow: 0 2px 5px rgba(0,0,0,.08);
+  min-height: 170px;
+  position: relative;
+}
+
+.date {
+  font-weight: 600;
+  margin-bottom: 10px;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 4px;
+  text-align: center;
+}
+
+/* ＋ ボタン */
+.plus {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  background: #2979ff;
+  color: #fff;
+  width: 22px;
+  height: 22px;
+  line-height: 22px;
+  border-radius: 50%;
+  font-size: 15px;
+  cursor: pointer;
+  border: none;
+  opacity: .75;
+}
+.plus:hover { opacity: 1; }
+
+/* イベント */
+.event {
+  background: #e8f0ff;
+  border-left: 4px solid #2979ff;
+  padding: 6px 8px;
+  border-radius: 5px;
+  margin-bottom: 8px;
+  font-size: 13px;
+  position: relative;
+}
+
+/* イベント削除 */
+.del {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  background: #ff4d4d;
+  color: #fff;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  font-size: 11px;
+  cursor: pointer;
+  border: none;
+  opacity: .65;
+}
+.del:hover { opacity: 1; }
+
+/* ==========================================
+   Gmail（旧デザイン）
+========================================== */
+.gmail {
+  background: #fff;
+  padding: 18px;
+  border-radius: 10px;
+  box-shadow: 0 2px 6px rgba(0,0,0,.08);
+}
+
+.mail {
+  border-bottom: 1px solid #eee;
+  padding: 8px 0;
+}
+
+.subject { font-weight: 600; }
+.from { font-size: 13px; color: #555; }
+
+/* ==========================================
+   メモカード（旧Google Drive版に忠実に寄せる）
+========================================== */
+.memo-card {
+  background: #fafafa;
+  border-radius: 8px;
+  padding: 14px;
+  margin-bottom: 12px;
+  box-shadow: 0 1px 4px rgba(0,0,0,.06);
+}
+
+.memo-title {
+  font-weight: 600;
+  font-size: 15px;
+}
+
+.memo-body {
+  font-size: 13px;
+  margin: 6px 0;
+  color: #444;
+  white-space: pre-wrap;
+}
+
+.memo-date {
+  font-size: 11px;
+  color: #777;
+}
+
+/* メモ編集ボタン */
+.memo-edit {
+  background: #4caf50;
+  color: #fff;
+  border: none;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+  margin-right: 6px;
+}
+
+/* メモ削除ボタン */
+.memo-delete,
+.memo-btn.del {
+  background: #ff4d4d;
+  color: #fff;
+  border: none;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+/* 編集ボタン（Firebase版との統合） */
+.memo-btn.edit {
+  background: #4caf50;
+  color: #fff;
+}
+
+/* ==========================================
+   メモ追加フォーム（旧デザイン）
+========================================== */
+.memo-form,
+.form-box {
+  background: #fff;
+  padding: 18px;
+  border-radius: 10px;
+  box-shadow: 0 2px 6px rgba(0,0,0,.08);
+}
+
+.memo-form input,
+.memo-form textarea,
+.form-box input,
+.form-box textarea {
+  width: 100%;
+  padding: 10px;
+  margin: 6px 0 14px;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+  font-size: 14px;
+}
+
+.memo-form button,
+button.save {
+  width: 100%;
+  padding: 12px;
+  background: #2979ff;
+  border: none;
+  color: #fff;
+  border-radius: 6px;
+  font-size: 15px;
+  cursor: pointer;
+}
+
+.memo-form button:hover,
+button.save:hover {
+  opacity: .85;
+}
