@@ -273,3 +273,7 @@ button.save {
 button.save:hover {
   opacity: .85;
 }
+
+memo-page-title{
+  margin:0 10px;
+}
