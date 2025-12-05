@@ -212,6 +212,7 @@ header {
   font-size: 12px;
   cursor: pointer;
   margin-right: 6px;
+  margin-top:10px;
 }
 
 /* メモ削除ボタン */
@@ -223,6 +224,7 @@ header {
   border-radius: 6px;
   font-size: 12px;
   cursor: pointer;
+  margin-top:10px;
 }
 
 
