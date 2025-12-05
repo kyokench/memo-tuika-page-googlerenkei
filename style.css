@@ -225,6 +225,59 @@ header {
 }
 
 /* -------- 右：メモ一覧＋編集 ---------- */
+.memo-layout {
+  display: flex;
+  height: calc(100vh - 60px);
+  background: #f4f5f7;
+}
+
+/* -------- 左：フォルダ一覧 ---------- */
+.folder-panel {
+  width: 240px;
+  background: #fff;
+  border-right: 1px solid #ddd;
+  padding: 16px;
+  overflow-y: auto;
+}
+
+.folder-title {
+  font-weight: 700;
+  margin-bottom: 10px;
+  font-size: 16px;
+}
+
+.folder-item {
+  padding: 8px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  margin-bottom: 4px;
+  font-size: 14px;
+}
+
+.folder-item:hover {
+  background: #e8f0ff;
+}
+
+.folder-item.active {
+  background: #2979ff;
+  color: #fff;
+}
+
+/* ドロップ可能表示（青枠） */
+.folder-item.drop-target {
+  border: 2px solid #2979ff;
+}
+
+/* フォルダ追加欄 */
+.folder-add-box input {
+  width: 100%;
+  padding: 8px;
+  margin-top: 8px;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+}
+
+/* -------- 右：メモ一覧＋編集 ---------- */
 .memo-panel {
   flex: 1;
   padding: 20px;
@@ -237,6 +290,11 @@ header {
   border-radius: 8px;
   margin-bottom: 12px;
   box-shadow: 0 1px 4px rgba(0,0,0,.08);
+  cursor: grab;
+}
+
+.memo-card:active {
+  cursor: grabbing;
 }
 
 .memo-title {
