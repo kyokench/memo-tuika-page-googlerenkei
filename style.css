@@ -203,7 +203,7 @@ header {
 }
 
 /* メモ編集ボタン */
-.memo-edit {
+.edit-memo-btn {
   background: #4caf50;
   color: #fff;
   border: none;
