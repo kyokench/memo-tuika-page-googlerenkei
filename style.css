@@ -1,5 +1,5 @@
 /* ==========================================
-   1) ベース（共通）
+   ベース
 ========================================== */
 body {
   font-family: "Segoe UI", sans-serif;
@@ -15,49 +15,21 @@ header {
 }
 
 .container {
-  padding: 20px;
+  padding: 18px;
   max-width: 900px;
   margin: auto;
-}
-
-h2, h3, h4 {
-  color: #222;
-  margin-top: 0;
-}
-
-/* ==========================================
-   2) タブナビ（index.html 用）
-========================================== */
-.tab-nav {
   display: flex;
-  gap: 10px;
-  padding: 16px;
-  background: #eef2fa;
-}
-
-.tab-nav button {
-  padding: 10px 18px;
-  background: #dce3f7;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 15px;
-  font-weight: 600;
-}
-
-.tab-nav button.active {
-  background: #2979ff;
-  color: #fff;
+  flex-direction: column;
+  gap: 32px;
 }
 
 /* ==========================================
-   3) カレンダー（index.html 用）
+   カレンダー（旧デザイン再現）
 ========================================== */
 .calendar {
   display: grid;
   gap: 12px;
 }
-
 @media (min-width: 900px) {
   .calendar {
     grid-template-columns: repeat(7, 1fr);
@@ -81,6 +53,7 @@ h2, h3, h4 {
   text-align: center;
 }
 
+/* ＋ ボタン */
 .plus {
   position: absolute;
   top: 6px;
@@ -109,6 +82,7 @@ h2, h3, h4 {
   position: relative;
 }
 
+/* イベント削除 */
 .del {
   position: absolute;
   top: 3px;
@@ -126,7 +100,7 @@ h2, h3, h4 {
 .del:hover { opacity: 1; }
 
 /* ==========================================
-   4) Gmail（index.html 用）
+   Gmail（旧デザイン）
 ========================================== */
 .gmail {
   background: #fff;
@@ -144,88 +118,99 @@ h2, h3, h4 {
 .from { font-size: 13px; color: #555; }
 
 /* ==========================================
-   5) メモ（memo.html 用）
+   メモカード（旧Google Drive版に忠実に寄せる）
 ========================================== */
-
-/* メモカード */
 .memo-card {
-  background: #fff;
-  padding: 16px;
-  border-radius: 10px;
-  margin-bottom: 14px;
-  box-shadow: 0 2px 5px rgba(0,0,0,.08);
-  border-left: 5px solid #2979ff;
+  background: #fafafa;
+  border-radius: 8px;
+  padding: 14px;
+  margin-bottom: 12px;
+  box-shadow: 0 1px 4px rgba(0,0,0,.06);
 }
 
 .memo-title {
-  font-size: 17px;
   font-weight: 600;
-  color: #222;
+  font-size: 15px;
 }
 
 .memo-body {
-  font-size: 14px;
-  margin: 10px 0;
+  font-size: 13px;
+  margin: 6px 0;
   color: #444;
   white-space: pre-wrap;
 }
 
 .memo-date {
-  font-size: 12px;
-  color: #666;
-  margin-bottom: 10px;
+  font-size: 11px;
+  color: #777;
 }
 
-/* 編集・削除ボタン */
-.card-actions {
-  display: flex;
-  gap: 10px;
-}
-
-.memo-btn {
-  padding: 6px 12px;
+/* メモ編集ボタン */
+.memo-edit {
+  background: #4caf50;
+  color: #fff;
   border: none;
+  padding: 6px 10px;
   border-radius: 6px;
+  font-size: 12px;
   cursor: pointer;
-  font-size: 13px;
+  margin-right: 6px;
 }
-.memo-btn.edit { background:#4caf50; color:#fff; }
-.memo-btn.del  { background:#ff4d4d; color:#fff; }
 
-/* メモ入力フォーム */
+/* メモ削除ボタン */
+.memo-delete,
+.memo-btn.del {
+  background: #ff4d4d;
+  color: #fff;
+  border: none;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+/* 編集ボタン（Firebase版との統合） */
+.memo-btn.edit {
+  background: #4caf50;
+  color: #fff;
+}
+
+/* ==========================================
+   メモ追加フォーム（旧デザイン）
+========================================== */
+.memo-form,
 .form-box {
-  background:#fff;
-  padding:20px;
-  border-radius:10px;
-  box-shadow:0 2px 6px rgba(0,0,0,.08);
-  margin-top:30px;
+  background: #fff;
+  padding: 18px;
+  border-radius: 10px;
+  box-shadow: 0 2px 6px rgba(0,0,0,.08);
 }
 
-.form-box h3 {
-  border-left: 4px solid #2979ff;
-  padding-left: 8px;
+.memo-form input,
+.memo-form textarea,
+.form-box input,
+.form-box textarea {
+  width: 100%;
+  padding: 10px;
+  margin: 6px 0 14px;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+  font-size: 14px;
 }
 
-input,
-textarea {
-  width:100%;
-  padding:10px;
-  border-radius:6px;
-  border:1px solid #ccc;
-  font-size:15px;
-  margin-bottom:14px;
-}
-
+.memo-form button,
 button.save {
-  width:100%;
-  padding:12px;
-  background:#2979ff;
-  border:none;
-  color:#fff;
-  border-radius:8px;
-  font-size:16px;
-  cursor:pointer;
+  width: 100%;
+  padding: 12px;
+  background: #2979ff;
+  border: none;
+  color: #fff;
+  border-radius: 6px;
+  font-size: 15px;
+  cursor: pointer;
 }
+
+.memo-form button:hover,
 button.save:hover {
   opacity: .85;
 }
