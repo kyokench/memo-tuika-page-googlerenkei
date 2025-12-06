@@ -161,7 +161,7 @@ header {
 ========================================== */
 .gmail {
   background: #fff;
-  padding: 18px;
+  padding: 18px 10px;
   border-radius: 10px;
   box-shadow: 0 2px 6px rgba(0,0,0,.08);
 }
@@ -491,4 +491,38 @@ header {
 }
 .thumb-wrap {
   position: relative;
+}
+
+/* ==========================================
+   Gmailリンク対応
+========================================== */
+.mail-link {
+  text-decoration: none;
+  color: inherit;
+  display: block;
+  border-radius: 6px; /* ホバーエフェクトの角を丸める */
+}
+
+.mail-link .mail {
+  transition: background-color .2s ease;
+}
+
+.mail-link:hover .mail {
+  background-color: #f4f7ff;
+}
+
+/* .mail のスタイル調整 */
+.mail {
+  border-bottom: 1px solid #eee;
+  padding: 10px 8px; /* 少しパディングを調整 */
+}
+
+/* 最後の要素の下線を消す */
+.gmail > .mail-link:last-of-type .mail {
+  border-bottom: none;
+}
+
+/* gmailコンテナのpaddingを調整して、ホバーが端につくように */
+.gmail {
+  padding: 18px 10px;
 }
